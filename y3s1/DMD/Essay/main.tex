@@ -1,0 +1,34 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+\title{\vspace{-4cm}Classification of Databases}
+\author{Nikolay Troshkov, \href{mailto:ariser@ariser.ru}{ariser@ariser.ru}}
+\date{}
+
+\usepackage{hyperref}
+\usepackage{biblatex}
+\addbibresource{references.bib}
+
+\begin{document}
+
+\maketitle
+
+\section*{My Short Bio}
+
+I'm from Irkutsk, a city near Lake Baikal in Siberia. I've finished two years of the Applied Mathematics and Informatics course at my local university. On the third year I've dropped the university and completely devoted myself to a start-up project I've been working on. Overall, I have 4 years of teamwork experience and about 5 or 6 years of experience in front-end development.
+
+\section*{Classification of Databases}
+
+There are a lot of Database Systems, and no wonder that we can come up with a bunch of criteria for classifying them. The most obvious classifications would be based on data model (i. e. relational, document-oriented, etc.), or on the way a database is distributed (i. e. centralized, distributed, etc.) \cite{dbClassifications}. We're going to compare them by their popularity and try to understand the reasons.
+
+Firstly, let's take a look at the systems which are well-known and wide-spread. The first DBS that comes to mind is Oracle. Then come MySQL, MSSQL, maybe MongoDB and PostgreSQL \cite{dbTop}. What do they all have in common? Apart from MongoDB it is a query language they use, SQL. It is powerful tools for databases creation and administration, big community and constant maintenance of the product.
+
+Secondly, let's consider database systems which are known, but not so popular. For example, Elasticsearch, Google BigQuery or Oracle NoSQL \cite{dbRanking}. Being maintained by companies as big as Google and Oracle, they don't hold the first positions. The reason, generally, is their limited application. They were developed for a specific purpose, and therefore can't be used as a common database for every service.
+
+Finally, we are going to look at some unpopular databases. For example, they are JustOneDB, SiteWhere or TomP2P \cite{dbRanking}. The majority of these were developed by small companies, or even by individuals. The point is that they don't have a community and maintenance of the product is not so good. Some of the databases we've never heard of were developed just for academic or marketing purposes.
+
+As a conclusion I'd like to emphasize that constant maintenance and development of a product is vital for DBS to be popular, along with a big community and powerful tools for its users.
+
+\printbibliography
+
+\end{document}
