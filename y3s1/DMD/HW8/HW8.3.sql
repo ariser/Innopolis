@@ -21,9 +21,10 @@ BEGIN
       digit_index := i;
       EXIT WHEN num >= roman_digit_values [i];
     END LOOP;
-    -- check whether we can use subtractive notation for V, L or D. Make sure we don't use D as subtracted value (edge case)
+    -- check whether we can use subtractive notation for V, L or D.
+    -- Make sure that the subtracted digit isn't V, L or D (can happen for underscored V)
     IF num + roman_digit_values [digit_index - 1] >= roman_digit_values [digit_index + 1] AND
-       roman_digit_values [digit_index - 1] <> 500
+       roman_digit_values [digit_index - 1] * 2 < roman_digit_values [digit_index]
     THEN
       result := result || roman_digits [digit_index - 1] || roman_digits [digit_index + 1];
       num := num - roman_digit_values [digit_index + 1] + roman_digit_values [digit_index - 1];
