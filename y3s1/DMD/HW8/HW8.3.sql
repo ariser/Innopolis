@@ -12,17 +12,18 @@ BEGIN
     RAISE EXCEPTION 'Invalid input';
   END IF;
 
-  roman_digits := ARRAY ['I', 'V', 'X', 'L', 'C', 'D', 'M', '_V', '_X', '_L', '_C', '_D', '_M'];
-  roman_digit_values := ARRAY [1, 5, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000];
+  roman_digits := ARRAY ['I', 'V', 'X', 'L', 'C', 'D', 'M', E'V\u0332', E'X\u0332', E'L\u0332', E'C\u0332', E'D\u0332', E'M\u0332'];
   result := '';
+  roman_digit_values := ARRAY [1, 5, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000];
   WHILE num > 0 LOOP
     -- find the largest roman digit lte num
     FOR i IN REVERSE array_length(roman_digit_values, 1)..1 LOOP
       digit_index := i;
       EXIT WHEN num >= roman_digit_values [i];
     END LOOP;
-    -- check whether we can use subtractive notation for V, L or D
-    IF num + roman_digit_values [digit_index - 1] >= roman_digit_values [digit_index + 1]
+    -- check whether we can use subtractive notation for V, L or D. Make sure we don't use D as subtracted value (edge case)
+    IF num + roman_digit_values [digit_index - 1] >= roman_digit_values [digit_index + 1] AND
+       roman_digit_values [digit_index - 1] <> 500
     THEN
       result := result || roman_digits [digit_index - 1] || roman_digits [digit_index + 1];
       num := num - roman_digit_values [digit_index + 1] + roman_digit_values [digit_index - 1];

@@ -13,8 +13,8 @@ DECLARE
   subtraction_performed BOOLEAN;
   prohibit_subtraction  BOOLEAN;
 BEGIN
-  roman_digits := ARRAY ['I', 'V', 'X', 'L', 'C', 'D', 'M', '_V', '_X', '_L', '_C', '_D', '_M'];
-  roman_digit_values := ARRAY [1, 5, 10, 50, 100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000];
+  roman_digits := ARRAY ['I', 'V', 'X', 'L', 'C', 'D', 'M', E'V\u0305', E'V\u0332', E'X\u0305', E'X\u0332', E'L\u0305', E'L\u0332', E'C\u0305', E'C\u0332', E'D\u0305', E'D\u0332', E'M\u0305', E'M\u0332'];
+  roman_digit_values := ARRAY [1, 5, 10, 50, 100, 500, 1000, 5000, 5000, 10000, 10000, 50000, 50000, 100000, 100000, 500000, 500000, 1000000, 1000000];
 
   prev_digit_index := -1;
   result := 0;
@@ -29,9 +29,9 @@ BEGIN
   -- loop from the last char. It's easier to handle subtractive notation that way.
   WHILE char_index <= length(roman) LOOP
     -- read digits one by one
-    IF substr(roman_rev, char_index + 1, 1) = '_'
+    IF substr(roman_rev, char_index, 1) ~ E'\u0305' or substr(roman_rev, char_index, 1) ~ E'\u0332'
     THEN
-      -- if the next char is underscore, take two characters
+      -- if the char is underline or overline, take two characters
       chr := substr(roman_rev, char_index, 2);
       char_index := char_index + 2;
     ELSE
