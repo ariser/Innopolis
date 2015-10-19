@@ -1,3 +1,6 @@
+from dbms.const import *
+
+
 def convert_list(src, converter):
     return list(map(converter, src))
 
