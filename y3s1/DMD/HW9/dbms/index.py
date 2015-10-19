@@ -1,4 +1,4 @@
-from dbms import delimiters
+from dbms.const import *
 
 
 class Index:
@@ -15,6 +15,6 @@ class Index:
         return '{offset}{delimiter}{limit}{delimiter}{attr_limit}'.format(
             offset=self.offset,
             limit=self.limit,
-            attr_limit=delimiters.attr_delimiter.decode('utf-8').join(list(map(str, self.attr_limits))),
-            delimiter=delimiters.offset_delimiter.decode('utf-8')
+            attr_limit=Delimiters.attr.decode(DBMS_ENCODING).join(list(map(str, self.attr_limits))),
+            delimiter=Delimiters.offset.decode(DBMS_ENCODING)
         )
