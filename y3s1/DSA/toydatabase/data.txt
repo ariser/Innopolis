@@ -1,0 +1,278 @@
+Abdullin	Nurmukhamet	Bachelor-3
+Abugaliev	Alexander	Bachelor-3
+Akentyev	Eugene	Bachelor-3
+Akhmetshin	Islam	Bachelor-1
+Akhmetzyanov	Aydar	Bachelor-3
+Aleev	Bulat	Bachelor-3
+Alekseev	Nikita	Bachelor-1
+Alexeev	Vladimir	Bachelor-3
+Alexeev	Dmitry	Bachelor-3
+Alishev	Dzhamal	Bachelor-3
+Almukhametov	Irek	Bachelor-3
+Andrey	Tkach	Bachelor-3
+Astakhov	Alexey	Bachelor-1
+Bakhtin	Artyom	Cyber Security
+Bandura	Alexey	Bachelor-3
+Bashkirov	Pavel	Bachelor-1
+Bedratyi	Kirill	Robotics
+Beissov	Temur	Bachelor-3
+Bekirov	Artur	Bachelor-3
+Belova	Anastasia	Bachelor-3
+Berezhnoy	Vladislav	Robotics
+Bikbaev	Vyacheslav	Bachelor-3
+Bikmetova	Emiliya	Bachelor-1
+Biryukov	Ilya	Bachelor-3
+Bisarnov	Igor	Pre-Master's SE
+Blinov	Denis	Bachelor-1
+Bochkarev	Semyon	Bachelor-3
+Bochkarev	Grigory	Bachelor-3
+Bormotova	Anastasia	Bachelor-3
+Borodulin	Nikita	Bachelor-3
+Boronin	Mikhail	Bachelor-3
+Borovik	Ilya	Bachelor-1
+Boyarintsev	Konstantin	Bachelor-3
+Bugaev	Kirill	Bachelor-1
+Bykov	Anton	Data Science
+Bystritsky	Dmitry	Bachelor-3
+Cherkashin	Sergey	Bachelor-3
+Chernyshov	Alexey	Bachelor-3
+Chilikina	Natalia	Bachelor-3
+Chuvatkin	Alexey	Bachelor-3
+Danil'	Akhmet	Bachelor-1
+Davletshina	Diana	Bachelor-3
+Demetyeva	Darina	Bachelor-3
+Dmitrenok	Ilya	Bachelor-3
+Dmitrienko	Margarita	Cyber Security
+Dolgushev	Alexander	Bachelor-1
+Domozhirov	Alexey	Bachelor-3
+Drobnyy	Viktor	Bachelor-3
+Eduard	Yaushev	Bachelor-1
+Egorov	Eugene	Bachelor-3
+Elizariev	Alexander	Bachelor-3
+Emelyanov	Georgiy	Bachelor-1
+Ermolaev	Gregory	Bachelor-3
+Erofeeva	Irina	Bachelor-1
+Fedorov	Danil	Bachelor-3
+Fedyukov	Dmitry	Bachelor-3
+Fomchenko	Nikita	Bachelor-3
+Gabidullina	Aigul	Bachelor-1
+Galieva	Dilyara	Pre-Master's SE
+Gavrilin	Yuriy	Bachelor-1
+Gazizov	Damir	Bachelor-1
+Gazizullina	Alice	Bachelor-1
+Gerasimov	Valeriy	Bachelor-1
+Gerasimov	Alexandr	Bachelor-3
+Getmanskiy	Andrey	Robotics
+Gilfanov	Ildar	Bachelor-1
+Gizzatullina	Ilyusa	Bachelor-1
+Gladilin	Andrey	Bachelor-3
+Goncharenko	Vyacheslav	Bachelor-3
+Grachev	Igor	Cyber Security
+Grishina	Ekaterina	Pre-Master's SE
+Gryaznov	Evgeniy	Bachelor-3
+Gusarev	Maxim	Bachelor-3
+Gusev	Andrey	Bachelor-3
+Gusmanov	Kamill	Bachelor-1
+Handa	Kevin	Bachelor-1
+Hisamutdinov	Artur	Bachelor-3
+Ibragimov	Ilmir	Bachelor-3
+Ibragimov	Maxim	Data Science
+Ilin	Oleg	Pre-Master's SE
+Iskhakov	Alexey	Bachelor-1
+Isroilov	Davlatbek	Pre-Master's SE
+Ivanko	Mikhail	Bachelor-1
+Izmaylov	Ilya	Bachelor-3
+Kamaletdinov	Robert	Bachelor-1
+Kamalov	Artur	Robotics
+Kamsky	Artur	Bachelor-3
+Kandov	Sherafgan	Bachelor-3
+Kapitun	Dmitry	Bachelor-3
+Kasatkin	Timur	Bachelor-3
+Kasparov	Karen	Bachelor-1
+Khairullina	Aysylu	Data Science
+Khasanshina	Asiya	Bachelor-3
+Khayaliev	Arthur	Bachelor-1
+Khazhiev	Timur	Bachelor-1
+Khilazhev	Alik	Bachelor-1
+Khokhlov	Nikita	Bachelor-1
+Kiseleva	Daria	Bachelor-3
+Kocherga	Maria	Bachelor-3
+Koltsov	Sergey	Bachelor-3
+Kondyukov	Artyom	Bachelor-3
+Kononov	Yanislav	Bachelor-3
+Korchagin	Evgeny	Bachelor-3
+Korneva	Maria	Bachelor-3
+Korochansky	Arthur	Bachelor-3
+Kositcin	Alexander	Bachelor-1
+Kosterin	Alexey	Bachelor-3
+Koval	Matrin	Bachelor-3
+Kozar	Anastasia	Bachelor-3
+Kramarenko	Dmitry	Bachelor-3
+Krasilnikov	Mikhail	Bachelor-3
+Krasilnikova	Olga	Bachelor-3
+Krasnov	Alexander	Bachelor-3
+Kravchenko	Vladislav	Bachelor-3
+Kraw	Nikita	Bachelor-3
+Krylov	Vladislav	Robotics
+Kuchukbaev	Ruslan	Bachelor-3
+Kulagin	Andrey	Bachelor-1
+Kurenkov	Vladislav	Bachelor-1
+Kurilenko	Nikita	Bachelor-3
+Kuznelsov	Ilya	Bachelor-1
+Kuznetsov	Dmitry	Pre-Master's SE
+Kuznetsov	Sergey	Pre-Master's SE
+Kuznetsova	Ekaterina	Pre-Master's SE
+Larionova	Darya	Bachelor-1
+Lashin	Daniil	Bachelor-1
+Latypov	Bulat	Pre-Master's SE
+Lebedev	Andrey	Bachelor-3
+Legeyda	Elina	Bachelor-1
+Leontiev	Andrey	Bachelor-1
+Leshakov	Kuzma	Bachelor-3
+Lim	Sergey	Bachelor-3
+Lipatov	Vladislav	Bachelor-3
+Lopatin	Konstantin	Bachelor-3
+Losev	Arseniy	Bachelor-3
+Lubyannikov	Denis	Bachelor-1
+Lysenko	Timothy	Bachelor-3
+Magomedov	Murad	Bachelor-3
+Maisuradze	George	Bachelor-3
+Makaev	Boris	Bachelor-1
+Maksudov	Bulat	Bachelor-1
+Maksudov	Anatoly	Bachelor-1
+Mamakov	Timur	Robotics
+Markarova	Anna	Bachelor-3
+Marochko	Vladimir	Bachelor-3
+Maslov	Timofey	Bachelor-1
+Mazaeva	Ekaterina	Bachelor-3
+Melnikov	Emil	Data Science
+Merzlikin	Alexey	Pre-Master's SE
+Mezhentsev	Kirill	Robotics
+Milenko	Vladimir	Bachelor-1
+Minakova	Olga	Bachelor-3
+Mingela	Bogdan	Bachelor-3
+Minibaev	Evgeny	Bachelor-3
+Mirgalimova	Ruzilya	Pre-Master's SE
+Mirzanurov	Damir	Data Science
+Mukhametshin	Marat	Bachelor-1
+Mukhametzyanov	Kamil	Bachelor-1
+Mukhin	Alexey	Bachelor-3
+Mukhutdinov	Bulat	Pre-Master's SE
+Muksinova	Jamilya	Bachelor-3
+Munichev	Konstantin	Pre-Master's SE
+Muratov	Fyodor	Data Science
+Murtazina	Almira	Bachelor-1
+Musatova	Elena	Bachelor-3
+Musin	Bulat	Bachelor-3
+Mustafin	Ilgiz	Bachelor-1
+Mustafin	Ruslan	Robotics
+Myachikov	Vladislav	Bachelor-3
+Nedorezov	Alexander	Pre-Master's SE
+Nguen	Van	Bachelor-3
+Nikiforov	Stepan	Bachelor-3
+Nikitina	Daria	Robotics
+Nikolaev	Evgeny	Bachelor-3
+Novikov	Mark	Bachelor-3
+Nurgaliev	Ildar	Data Science
+Nurgalieva	Milana	Bachelor-1
+Nurullin	Elnar	Cyber Security
+Nwafor	Kenneth Chinedu	Bachelor-3
+Palamarchuk	Yuliya	Bachelor-3
+Panchenko	Ivan	Bachelor-1
+Parfenov	Alexander	Bachelor-3
+Penkov	Pavel	Bachelor-1
+Petrov	Yaroslav	Bachelor-3
+Pinkevich	Sergey	Bachelor-3
+Pînzaru	George	Bachelor-1
+Pleshakov	Samvel	Bachelor-3
+Plyusnin	Ivan	Bachelor-3
+Pogorelov	Roman	Pre-Master's SE
+Ponomarev	Evgeniy	Bachelor-3
+Popov	Vadim	Bachelor-3
+Popov	Dmitry	Robotics
+Poyezzhayev	Arseniy	Bachelor-3
+Prokopyev	Anton	Bachelor-1
+Puzankova	Anastasia	Pre-Master's SE
+Ramazanov	Anvar	Bachelor-3
+Rautkin	Alex	Bachelor-1
+Repin	Mikhail	Bachelor-3
+Rodionova	Anastasia	Bachelor-3
+Rozanov	Andrey	Bachelor-3
+Rukavchuk	Dmitry	Bachelor-3
+Rumyancev	Alexey	Bachelor-3
+Ryabinicneva	Valeriya	Bachelor-1
+Sakhapov	Albert	Bachelor-1
+Salakhiev	Kamil	Data Science
+Samigullin	Artur	Data Science
+Sarbaev	Philipp	Bachelor-3
+Savva	Dmitry	Bachelor-1
+Sayakhov	Robert	Bachelor-1
+Sayfutdinov	Mukhamedgarif	Bachelor-3
+Serov	Pavel	Bachelor-3
+Shaikhislamov	Marat	Bachelor-3
+Shakirov	Timur	Pre-Master's SE
+Shalavin	Maxim	Pre-Master's SE
+Sharafutdinov	Timur	Bachelor-1
+Sharavuev	Ivan	Bachelor-3
+Sharifullin	Emil	Bachelor-3
+Shekhov	Nikita	Bachelor-3
+Shevchenko	Anastasia	Bachelor-1
+Shevchenko	Vladimir	Bachelor-3
+Shulgan	Igor	Bachelor-1
+Shunevich	Alexander	Bachelor-3
+Shvedov	Grigory	Bachelor-1
+Sidorov	Anton	Bachelor-3
+Sizov	Alexander	Bachelor-3
+Skukov	Vladislav	Bachelor-3
+Sloriukov	Maksim	Bachelor-3
+Smolyakov	Andrey	Bachelor-3
+Sokolov	Nikita	Bachelor-3
+Sokolov	Maxim	Bachelor-3
+Solonets	Sergey	Bachelor-3
+Sotnichenko	Roman	Bachelor-3
+Sozonov	Pavel	Bachelor-3
+Sozykin	Konstantin	Bachelor-3
+Strokov	Sergey	Bachelor-1
+Suleymanov	Danir	Bachelor-3
+Sysoeva	Ekaterina	Data Science
+Taizov	Oleg	Bachelor-1
+Tarasov	Alexander	Bachelor-1
+Tkachuk	Vladislav	Bachelor-3
+Tleugabylov	Alisher	Bachelor-3
+Trimasova	Anastasia	Bachelor-3
+Tropin	Andrew	Bachelor-3
+Troshkov	Nikolay	Bachelor-3
+Trusov	Alexey	Bachelor-3
+Tukhvatov	Rustam	Bachelor-3
+Tushov	Ruslan	Bachelor-1
+Ulyanov	Denis	Bachelor-3
+Umurzakov	Boburmirzo	Cyber Security
+Urazmanov	Artem	Bachelor-3
+Ushakova	Kateryna	Bachelor-3
+Usmanov	Ildar	Data Science
+Vafin	Ruslan	Bachelor-3
+Valeev	Artyom	Bachelor-3
+Valiev	Rafael	Bachelor-3
+Vaneev	Bogdan	Cyber Security
+Vasilenko	Viktor	Robotics
+Vinokurov	Marat	Bachelor-3
+Voronina	Kseniya	Bachelor-1
+Voteva	Tatiana	Bachelor-3
+Yagafarova	Zilya	Data Science
+Yagfarov	Rauf	Robotics
+Yaushev	Eduard	Bachelor-1
+Yermolaeva	Sofiia	Bachelor-3
+Yulduz	Fattakhova	Bachelor-3
+Yushkevich	Nikolay	Pre-Master's SE
+Yusupov	Ziyoiddin	Pre-Master's SE
+Zabirov	Albert	Bachelor-3
+Zaplatnikov	Denis	Bachelor-3
+Zaripov	Gleb	Bachelor-1
+Zhabina	Alena	Bachelor-1
+Zhadigerova	Gulmira	Bachelor-3
+Zhdanov	Anton	Bachelor-3
+Zhiteytsev	Evgeny	Robotics
+Zolin	Andrey	Pre-Master's SE
+Zorin	Vasilii	Bachelor-3
+Zorin	Semen	Data Science
+Zubov	Igor	Bachelor-3
