@@ -1,6 +1,5 @@
 import os
 
-from dbms.const import *
 from dbms.utils import *
 from dbms.index import Index
 from dbms.metadata import Metadata
