@@ -44,3 +44,10 @@ class Metadata(object):
                 attr_limit=Delimiters.attr.decode(DBMS_ENCODING).join(list(map(str, self.attr_limits))),
                 delimiter=Delimiters.offset.decode(DBMS_ENCODING)
             )
+
+        def as_dict(self):
+            return {
+                'offset': self.offset,
+                'limit': self.limit,
+                'attr_limits': self.attr_limits
+            }

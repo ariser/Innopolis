@@ -1,607 +1,2033 @@
 """
+B+tree implementation.
+======================
+B+ trees are an efficient index structure for mapping
+a dictionary type object into a disk file.  All keys for
+these dictionary structures are strings with a fixed
+maximum length.  The values can be strings or
+integers (often representing seek positions in a secondary
+file) depending on the implementation.
 
+B+ trees can be useful for storing large mappings on disk
+in such a way that a small number of keys/values can be
+retrieved very quickly (with very few disk accesses).
+B+ trees can also be useful for sorting a very large number
+(millions) of records by unique string key values.
+
+In this implementation all keys must
+not exceed the maximum length for a
+given tree.  For string values there is no limitation on
+size of content.  Note that in my tests updates are
+2-3 times slower than retrieves, except for walking
+which is much faster than normal retrieves.
+
+As an add-on this module also provides a dbm compatible
+interface that permits arbitrary length keys and values.
+See below.
+
+Provided here are several implementations:
+
+BplusTree():
+  defines a mapping from strings to integers.
+
+caching_BPT():
+  subclass of BplusTree that caches key,value
+  pairs already seen.  This one cannot be updated.
+  Construct a compatible index file using BplusTree
+  and for read only access that touches a manageable
+  number of keys, reopen the file using caching_BPT.
+
+SBplusTree():
+  defines a mapping from strings to strings.
+  Updatable, but overwrites or deletions will
+  leave "unreachable garbage" in the "value space"
+  of the index file.  Use recopy_sbplus() to
+  recopy the file, eliminating the garbage.
+
+caching_SBPT():
+  analogous to caching_BPT, but mapping to strings.
+
+File creation:
+==============
+To create an index file do the following:
+
+  file = open(filename, "w+b")
+  B = SBplusTree(file, seek_position, nodesize, keymax)
+  B.startup()
+
+where seek_position is the seek_position where to "start"
+the tree (usually the start of file, 0), nodesize is the
+number of keys to keep at each node of the tree (pick an
+even number between 2 and 255), and keymax is the maximum
+size for the string keys in the mapping.
+
+When choosing nodesize remember that larger nodesizes
+make Python do more work and the file system do less work.
+I think 212 is probably a pretty good number.  Of course
+choose keymax to be as large as you will need.  A too large
+key size, however, may waste considerable space in the file.
+
+Now that you have a tree you can populate it with values
+just like a dictionary.
+
+   B["this"] = "that"
+   B["willy"] = "wonka"
+   x = B["this"]
+   del B["this"]
+   print len(B)
+   ...
+   f.close()
+
+The supported dictionary operations are indexed retrieval
+B[k], indexed assignment B[k] = v, key deletion del B[k] and
+length len(B).  Retrieval and deletion will raise KeyError
+on absent key.  Assignment will raise ValueError if the key
+is too large.
+
+B.keys(), B.values(), B.items() are not directly
+supported, but see "Walking" below.
+
+Note that the "basic" B-plus tree implementations only accept and
+return integers as values.  The SB-plus implementation will
+accept anything as values, but will use the str(x) function
+to convert them to a string before storing the value in the
+file.  The value returned will always be the string value
+stored.  IE
+
+   B["okeydoke"] = 23
+   print `B["okeydoke"]`
+
+prints "'23'", with the quotes.  The controlling
+application must control the
+serialization/deserialization of values if it needs to store
+something other than strings.
+
+Read only file access:
+======================
+Once an index file exists it can be re-opened in "read only"
+mode.
+
+   f = open(filename, "rb")
+   B = caching_SBPT(f)
+   B.open()
+   print B["willy"]
+
+Note that the configuration parameters for the tree are
+determined from a "file header".  Note however that a file
+written to store integers using BplusTree should not be opened
+for strings using SBplusTree or undefined and undesirable
+behaviour will result.  Opening an SBplusTree as a BplusTree
+is not advisable either.
+
+If the seek position for the start of the tree is anything
+other than 0, it must be specified:
+
+   B = caching_SBPT(f, position)
+
+or undefined behaviour will result.
+
+In this mode, retrieval and walking are permitted, but attempts
+to modify the structure will cause an exception.  In this mode the
+programmer may prefer to use the "caching" versions if they expect
+to retrieve the same keys many times and if the number of keys to
+touch is not huge (say, in the millions).
+
+Re-open for modification:
+=========================
+An existing index file can also be reopened for modification.
+
+   f = open(filename, "r+b")
+   B = SBplusTree(f)
+   B.open()
+   B["this"] = "is fun!"
+   ...
+   f.close()
+
+Again, modifications are disallowed for cached trees.
+
+Walking:
+========
+One of the neat features of B-plus trees is that they keep
+their keys in sorted order.  Hence it is easy and efficient
+to retrieve the keys/values sorted by the keys, and also to
+do range queries.
+
+To support this feature the tree implementations provide
+a "walker" interface.
+
+   walker = tree.walker(lowerkey, includelower,
+                        upperkey, includeupper)
+   while walker.valid:
+      print (walker.current_key(), walker.current_value())
+      walker.next()
+   walker.first()
+
+Or to traverse all pairs in key-sorted order
+
+   walker = tree.walker()
+   while walker.valid:
+      print (walker.current_key(), walker.current_value())
+      walker.next()
+   walker.first()
+
+The lowerkey/upperkey parameters indicate where to start/end
+walking (interpreted as the beginning/end if they are
+omitted or set to None) and includelower indicates whether
+to include the lower value if it is present in the tree,
+if not the next greater key will be the start position.
+
+For example to walk from key "m" (or just past it if absent)
+to the end:
+
+    w = tree.walker("m", 1)
+
+or to walk between "mzzz" and "nzzz" not inclusive:
+
+    w = tree.walker("mzzz", 0, "nzzz", 0)
+
+or walk from the beginning to "m", not inclusive
+
+    w = tree.walker(None, None, "m", 0)
+
+Here w.current_key() and w.current_value() retrieve the current
+key and value respectively, w.next() moves to the next pair, if there is one
+and w.valid indicates whether there is a current pair, and
+w.first() resets the walker to the first pair, if there is one.
+At initialization the walker is already at the first pair, if
+it exists.
+
+Multiaccess optimizations:
+==========================
+
+To make updates and retrievals run faster you can enable/disable
+a tree-global least-recently-used fifo mechanism which reduces
+reads and writes, but be *sure* to disable it before closing any
+BTree file that has been modified, or the tree may well become
+corrupt
+
+    try:
+       B.enable_fifo()
+       do_updates(B)
+    finally:
+       B.disable_fifo()
+
+The fifo may also improve performance for read only access,
+but it is not important to disable the mechanism later.
+The optimizations help most when key accesses are localized.
+(ie, a bunch of inserts with keys starting "abc..."
+or 10000 inserts in [almost] key-sorted order).
+For only one access, it's no help at all!  The fifo mechanism
+will not help for walking, so don't do it if you will only walk
+a portion of the tree once.  You might want to try putting
+various values as the optional argument to enable_fifo, eg,
+B.enable_fifo(1000) (but that's probably past the diminishing returns
+point...).  Large fifos will consume lots of "core" memory.
+
+Trash compacting
+================
+
+The functions recopy_bplus(f1, f2) and recopy_sbplus(f1, f2)
+recopy open "rb" file f1 to (open "w+b")
+file f2 for BplusTrees and SBplusTrees respectively.  The
+copy f2 will have no "garbage" and almost all leaf nodes will be
+full.  This can result in reducing file size by about 1/3.
+Both files must have headers at seek 0 and hold nothing but
+the tree nodes and tree data.  Also look at recopy_tree(t1, t2).
+
+DBM compatibility
+=================
+
+As an application of SBplusTree this module also provides
+a plug-compatible implementation of the standard python dbm
+style functionality, except that the "mode" parameter is not
+supported on initialization.  See the Python Lib manual entry
+on dbm.  Both keys and values may be of *arbitrary* length in
+this case, but keys are not kept in key-sorted order and
+overwrites and key collisions will result in unused garbage
+in the file (keys and values occur as SBplustree "values"
+using a PORTABLE bucket hashing scheme).
+
+   d = dbm(filename, flag)
+
+creates a dictionary like structure with d[key]=value, x=d[key],
+d.has_key(key), del d[key], len(d), and d.keys().  Also
+after any modification be sure that d gets explicitly
+closed d.close() or the file *may* become corrupt.
+Also, d.copy(otherfilename, "c") will create a more
+compact copy of d in another file with garbage discarded.
+The dbm implementation uses a very large fifo, so many accesses
+may consume a lot of "core" memory.
+
+DBM comparison
+==============
+An alternative to this module is gdbm or dbm for file
+indexing -- both supported by available Python extension
+modules.
+
+Expect dbm to be generally faster than this module, but
+remember:
+  - dbm doesn't do key-sorted walking.
+  - dbm often isn't portable across machines.
+  - dbm isn't written in Python (ie, requires an extension
+    module).
+  - dbm sometimes doesn't allow arbitrary value lengths
+    (but gdbm allows arbitrary length keys and values...)
+whereas this module does/is.  I don't know precisely how
+much faster dbm is, but for some types of use it may turn
+out to actually be slower, for all I know.  Please let
+me know!  Probably the most compelling advantage is that
+the index files generated by this module are portable across
+platforms.
+
+Fun
+===
+For fun or debugging try tree.dump().
+There is also a test suite for the module at the
+bottom (test() and retest()) which create a test index
+called "test" in the current directory.  Also testdbm().
+
+Caveats:
+========
+NOTE: only the standard string ordering is supported for
+  walking at present.  This could be fixed...
+
+WARNING: Never modify a tree while it is being walked.  Always
+  recreate all walkers after a tree modification.
+  NEVER open the same tree for modification twice!
+  ALWAYS make sure a modified tree has disabled the fifo and
+  the file has been closed before reopening the tree.
+
+WARNING: This implementation has no support for concurrent
+  modification.  It is designed for "write once by one process",
+  "read many by (possibly) several processes, but not with
+  concurrent modification."
+
+WARNING: If during modification any exception other than a KeyError/ValueError
+  is not caught, the indexed file structure *may* become corrupt (because
+  some operations completed and others didn't).  Walking all values
+  of an index or B.dump() may detect some corrupt states (***Note I should write
+  a sanity-check routine***)
+
+WARNING: As noted above an overwrite or delete for a SBTree (mapping
+  to strings) will leave unreachable junk in the "value space" of
+  the index.  See above.
+
+This code is provided for arbitrary use, but without warrantee of
+any kind.  At present it seems to work, but I'll call it an beta
+until it's better tested.
+
+Aaron Watters, arw@pythonpros.com
+http://starship.skyport.net/crew/aaron_watters
+http://www.pythonpros.com
 """
-__author__ = "unkonwn"
 
-import bisect
-import itertools
-import operator
+nilseek = -1
+
+from marshal import dumps
+
+sequence_overhead = len(dumps(""))
+intsize = len(dumps(1))
 
 
-class _BNode(object):
-    __slots__ = ["tree", "contents", "children"]
+# bisect algorithm with bounds (in 1.5 this is in /Lib)
+# Insert item x in list a, and keep it sorted assuming a is sorted
 
-    def __init__(self, tree, contents=None, children=None):
-        self.tree = tree
-        self.contents = contents or []
-        self.children = children or []
-        if self.children:
-            assert len(self.contents) + 1 == len(self.children), \
-                "one more child than data item required"
-
-    def __repr__(self):
-        name = getattr(self, "children", 0) and "Branch" or "Leaf"
-        return "<%s %s>" % (name, ", ".join(map(str, self.contents)))
-
-    def lateral(self, parent, parent_index, dest, dest_index):
-        if parent_index > dest_index:
-            dest.contents.append(parent.contents[dest_index])
-            parent.contents[dest_index] = self.contents.pop(0)
-            if self.children:
-                dest.children.append(self.children.pop(0))
+def insort(a, x, lo=0, hi=None):
+    if hi is None:
+        hi = len(a)
+    while lo < hi:
+        mid = (lo + hi) / 2
+        if x < a[mid]:
+            hi = mid
         else:
-            dest.contents.insert(0, parent.contents[parent_index])
-            parent.contents[parent_index] = self.contents.pop()
-            if self.children:
-                dest.children.insert(0, self.children.pop())
+            lo = mid + 1
+    a.insert(lo, x)
 
-    def shrink(self, ancestors):
-        parent = None
 
-        if ancestors:
-            parent, parent_index = ancestors.pop()
-            # try to lend to the left neighboring sibling
-            if parent_index:
-                left_sib = parent.children[parent_index - 1]
-                if len(left_sib.contents) < self.tree.order:
-                    self.lateral(
-                        parent, parent_index, left_sib, parent_index - 1)
-                    return
+# Find the index where to insert item x in list a, assuming a is sorted
 
-            # try the right neighbor
-            if parent_index + 1 < len(parent.children):
-                right_sib = parent.children[parent_index + 1]
-                if len(right_sib.contents) < self.tree.order:
-                    self.lateral(
-                        parent, parent_index, right_sib, parent_index + 1)
-                    return
-
-        center = len(self.contents) // 2
-        sibling, push = self.split()
-
-        if not parent:
-            parent, parent_index = self.tree.BRANCH(
-                self.tree, children=[self]), 0
-            self.tree._root = parent
-
-        # pass the median up to the parent
-        parent.contents.insert(parent_index, push)
-        parent.children.insert(parent_index + 1, sibling)
-        if len(parent.contents) > parent.tree.order:
-            parent.shrink(ancestors)
-
-    def grow(self, ancestors):
-        parent, parent_index = ancestors.pop()
-
-        minimum = self.tree.order // 2
-        left_sib = right_sib = None
-
-        # try to borrow from the right sibling
-        if parent_index + 1 < len(parent.children):
-            right_sib = parent.children[parent_index + 1]
-            if len(right_sib.contents) > minimum:
-                right_sib.lateral(parent, parent_index + 1, self, parent_index)
-                return
-
-        # try to borrow from the left sibling
-        if parent_index:
-            left_sib = parent.children[parent_index - 1]
-            if len(left_sib.contents) > minimum:
-                left_sib.lateral(parent, parent_index - 1, self, parent_index)
-                return
-
-        # consolidate with a sibling - try left first
-        if left_sib:
-            left_sib.contents.append(parent.contents[parent_index - 1])
-            left_sib.contents.extend(self.contents)
-            if self.children:
-                left_sib.children.extend(self.children)
-            parent.contents.pop(parent_index - 1)
-            parent.children.pop(parent_index)
+def bisect(a, x, lo=0, hi=None):
+    if hi is None:
+        hi = len(a)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if x < a[mid]:
+            hi = mid
         else:
-            self.contents.append(parent.contents[parent_index])
-            self.contents.extend(right_sib.contents)
-            if self.children:
-                self.children.extend(right_sib.children)
-            parent.contents.pop(parent_index)
-            parent.children.pop(parent_index + 1)
+            lo = mid + 1
+    return lo
 
-        if len(parent.contents) < minimum:
-            if ancestors:
-                # parent is not the root
-                parent.grow(ancestors)
-            elif not parent.contents:
-                # parent is root, and its now empty
-                self.tree._root = left_sib or self
 
-    def split(self):
-        center = len(self.contents) // 2
-        median = self.contents[center]
-        sibling = type(self)(
-            self.tree,
-            self.contents[center + 1:],
-            self.children[center + 1:])
-        self.contents = self.contents[:center]
-        self.children = self.children[:center + 1]
-        return sibling, median
+class NoRoomError(Exception):
+    pass
 
-    def insert(self, index, item, ancestors):
-        self.contents.insert(index, item)
-        if len(self.contents) > self.tree.order:
-            self.shrink(ancestors)
 
-    def remove(self, index, ancestors):
-        minimum = self.tree.order // 2
+RootFlag = 1
+InteriorFlag = 2
+FreeFlag = 3
+LeafFlag = 4
+LeafAndRootFlag = 5
+LeafFlags = (LeafFlag, LeafAndRootFlag)
+InteriorFlags = (InteriorFlag, RootFlag)
 
-        if self.children:
-            # find the smallest in the right subtree, exchange the value with the current node
-            # then delete the smallest one, just like the idea in the binary search tree.
-            # Note: only if len(descendent.contents) > minimum, we do this way in order to avoid 'grow' operation.
-            # Or we will inspect the left tree and do it any way
-            # all internal nodes have both left and right subtree.
-            additional_ancestors = [(self, index + 1)]
-            descendent = self.children[index + 1]
-            while descendent.children:
-                additional_ancestors.append((descendent, 0))
-                descendent = descendent.children[0]
-            if len(descendent.contents) > minimum:
-                ancestors.extend(additional_ancestors)
-                self.contents[index] = descendent.contents[0]
-                descendent.remove(0, ancestors)
-                return
 
-            # fall back to the left child, and exchange with the biggest, then delete the biggest anyway.
-            additional_ancestors = [(self, index)]
-            descendent = self.children[index]
-            while descendent.children:
-                additional_ancestors.append(
-                    (descendent, len(descendent.children) - 1))
-                descendent = descendent.children[-1]
-            ancestors.extend(additional_ancestors)
-            self.contents[index] = descendent.contents[-1]
-            descendent.remove(len(descendent.children) - 1, ancestors)
+class NodeFifo:
+    """fifo of nodes for locality access optimization"""
+
+    def __init__(self, size=30):
+        self.fifo = []  # fifo of active nodes, if used.
+        self.fifosize = size
+        self.fifo_dict = {}
+
+    def flush_fifo(self):
+        for node in self.fifo:
+            if node.dirty:
+                node.store(1)
+        self.fifo = []
+        self.fifo_dict = {}
+
+
+class Node:
+    """B+ tree node.
+       follows Silberchatz & Korth database intro book closely.
+       Each node has a number self.valid_keys> 1 of valid keys (except for
+       a tree with only 0 or 1 entries.  For leaves each
+          self.key[i] that is valid is associated with int value
+          self.indices[i]
+       For nonleaves nextnode integer reference is at
+          self.indices[i+1] and
+          self.indices[0]
+       is for entries with keys<self.keys[0]
+       for leaves self.indices[self.size] is "pointer" to
+       next sequential leaf.
+    """
+
+    # for update optimization
+    dirty = 0
+    fifo = None
+
+    def __init__(self, flag, size, keylen, position, infile, cloner=None):
+        self.flag = flag  # one of RootFlag...
+        self.size = size  # num of pointers from this Node
+        # if size>255: raise ValueError, "size too large: "+`size`
+        if size < 0:  # or size%2==1:
+            raise ValueError("size must be positive <= 255")
+        self.position = position  # seek position in file
+        self.infile = infile  # open file for storage
+        self.keylen = keylen  # maximum key length (no nulls!)
+        # seek pointers for descendents (root/interior)
+        # all but last is a value for a leaf, last is successor seek
+        self.indices = [-1] * (size + 1)
+        # key storage
+        # for leaves value for key[i] is at indices[i]
+        # for others keys[i] is at indices[i+1],
+        #   indices[0] points to keys preceding keys[0].
+        # for freelist nodes, nodes are stored on
+        #   linked list with indices[0] forward
+        self.keys = [""] * size
+        # linearized storage length in file
+        # self.intstorage = intsize * (size+1)
+        # self.keystorage = keylen * size
+        # in debug mode the seek position is prepended
+        # if debug:
+        #   self.intstorage = self.intstorage + intsize
+        # self.storage = (2 +           # flag, valid
+        #                self.intstorage + self.keystorage)
+        if cloner is None:
+            self.storage = (sequence_overhead +  # list overhead
+                            2 * intsize +  # flag, valid
+                            (size + 1) * intsize +  # indices
+                            size * (sequence_overhead + keylen)  # keys
+                            )
         else:
-            self.contents.pop(index)
-            if len(self.contents) < minimum and ancestors:
-                self.grow(ancestors)
-
-
-class _BPlusLeaf(_BNode):
-    __slots__ = ["tree", "contents", "data", "next"]
-
-    def __init__(self, tree, contents=None, data=None, next=None):
-        self.tree = tree
-        self.contents = contents or []
-        self.data = data or []
-        self.next = next
-        assert len(self.contents) == len(self.data), "one data per key"
-
-    def insert(self, index, key, data, ancestors):
-        self.contents.insert(index, key)
-        self.data.insert(index, data)
-
-        if len(self.contents) > self.tree.order:
-            self.shrink(ancestors)
-
-    def lateral(self, parent, parent_index, dest, dest_index):
-        if parent_index > dest_index:
-            dest.contents.append(self.contents.pop(0))
-            dest.data.append(self.data.pop(0))
-            parent.contents[dest_index] = self.contents[0]
+            self.storage = cloner.storage
+            self.fifo = cloner.fifo
+        # note, for interior nodes
+        #    valid_key of 0 means one valid pointer, -1 means none
+        # for leaves valid_keys should be positive
+        if flag in [InteriorFlag, RootFlag]:
+            self.valid_keys = -1  # number of valid entries
         else:
-            dest.contents.insert(0, self.contents.pop())
-            dest.data.insert(0, self.data.pop())
-            parent.contents[parent_index] = dest.contents[0]
+            self.valid_keys = 0
 
-    def split(self):
-        center = len(self.contents) // 2
-        median = self.contents[center - 1]
-        sibling = type(self)(
-            self.tree,
-            self.contents[center:],
-            self.data[center:],
-            self.next)
-        self.contents = self.contents[:center]
-        self.data = self.data[:center]
-        self.next = sibling
-        return sibling, sibling.contents[0]
+    def clear(self):
+        # reinitialize keys, indices for self.
+        size = self.size
+        self.keys = [""] * size
+        self.valid_keys = 0
+        if self.flag in InteriorFlags:
+            # reinit all indices
+            self.indices = [-1] * (size + 1)
+            self.valid_keys = -1
+        else:
+            # don't clobber forward pointer
+            self.indices[:size] = [-1] * size
 
-    def remove(self, index, ancestors):
-        minimum = self.tree.order // 2
-        if index >= len(self.contents):
-            self, index = self.next, 0
+    # interior node operation.
+    def put_node(self, key, node):
+        """place a node for key into self.  Raise NoRoomError if no room."""
+        if not isinstance(key, str):
+            raise TypeError("bad key " + repr(key))
+        position = node.position
+        self.put_position(key, position)
 
-        key = self.contents[index]
+    def put_first_index(self, index):
+        # print "put_first_index", index
+        if self.valid_keys >= 0:
+            raise ValueError("put_first_index on full node")
+        self.indices[0] = index
+        self.valid_keys = 0
 
-        # if any leaf that could accept the key can do so
-        # without any rebalancing necessary, then go that route
-        current = self
-        while current is not None and current.contents[0] == key:
-            if len(current.contents) > minimum:
-                if current.contents[0] == key:
-                    index = 0
-                else:
-                    index = bisect.bisect_left(current.contents, key)
-                current.contents.pop(index)
-                current.data.pop(index)
-                return
-            current = current.next
+    def put_position(self, key, position):
+        # print "put_position", (key, position), self.indices, self.keys
+        if self.flag not in InteriorFlags:
+            raise ValueError("cannot insert into leaf node")
+        valid_keys = self.valid_keys
+        last = valid_keys + 1
+        if self.valid_keys >= self.size:
+            raise NoRoomError("no room")
+        # store the key
+        if valid_keys < 0:  # no nodes currently
+            # print "no keys"
+            self.valid_keys = 0
+            self.indices[0] = position
+        else:
+            # yes nodes
+            keys = self.keys
+            # is the key there already?
+            if key in keys:
+                if keys.index(key) < valid_keys:
+                    raise ValueError("reinsert of node for existing key")
+            place = bisect(keys, key, 0, valid_keys)
+            keys.insert(place, key)
+            del keys[last]
+            # store the index
+            indices = self.indices
+            # print "inserting", position, "before", indices
+            indices.insert(place + 1, position)
+            del indices[last + 1]
+            # print "after", indices
+            self.valid_keys = last
 
-        self.grow(ancestors)
+    def del_node(self, key):
+        """delete node for key, (key==None means "start" node)
+           key must match exactly."""
+        if self.flag not in InteriorFlags:
+            raise ValueError("cannot delete node from leaf node")
+        if self.valid_keys < 0: raise KeyError("no such key (empty)")
+        valid_keys = self.valid_keys
+        indices = self.indices
+        keys = self.keys
+        # print "del_node before", key, keys, indices, valid_keys
+        if key is None:
+            # delete first node (shouldn't happen?
+            place = 0
+            index_place = 0
+        else:
+            # delete non-first node
+            place = keys.index(key)
+            index_place = place + 1
+        del indices[index_place]
+        indices.append(nilseek)
+        del keys[place]
+        keys.append("")
+        # keys[valid_keys-1] = ""
+        # print "del_node after", keys, indices
+        self.valid_keys = valid_keys - 1
 
-    def grow(self, ancestors):
-        minimum = self.tree.order // 2
-        parent, parent_index = ancestors.pop()
-        left_sib = right_sib = None
+    def get_keys(self):
+        """return a list of valid keys for self."""
+        valid_keys = self.valid_keys
+        if valid_keys <= 0:
+            return []
+        else:
+            return self.keys[0:valid_keys]
 
-        # try borrowing from a neighbor - try right first
-        if parent_index + 1 < len(parent.children):
-            right_sib = parent.children[parent_index + 1]
-            if len(right_sib.contents) > minimum:
-                right_sib.lateral(parent, parent_index + 1, self, parent_index)
-                return
+    def keys_indices(self, leftmost):
+        """return [(leftmost, firstindex), (nodekey, nodeindex), ...]"""
+        from itertools import zip_longest
+        keys = self.get_keys()
+        if self.flag in InteriorFlags:
+            # nonleaf, must add leftmost to complete keys
+            keys = [leftmost] + keys
+        indices = self.indices[:len(keys)]
+        # return pairing
+        return list(zip_longest(keys, indices))
 
-        # fallback to left
-        if parent_index:
-            left_sib = parent.children[parent_index - 1]
-            if len(left_sib.contents) > minimum:
-                left_sib.lateral(parent, parent_index - 1, self, parent_index)
-                return
+    def get_node(self, key):
+        """get node that exactly matches key (None for first)"""
+        if self.flag not in InteriorFlags:
+            raise ValueError("cannot get_node from leaf node")
+        if key is None:
+            index = 0
+        else:
+            index = self.keys.index(key) + 1
+        place = self.indices[index]
+        if place < 0: raise IndexError("invalid position! " + repr((place, key)))
+        # short-circuit optimization: check fifo
+        fifo = self.fifo
+        if fifo:
+            ff = fifo.fifo
+            fd = fifo.fifo_dict
+            if place in fd:
+                node = fd[place]
+                ff.remove(node)
+                ff.insert(0, node)
+                return node
+        node = self.clone(place)
+        node = node.materialize()
+        return node
 
-        # join with a neighbor - try left first
-        if left_sib:
-            left_sib.contents.extend(self.contents)
-            left_sib.data.extend(self.data)
-            parent.remove(parent_index - 1, ancestors)
-            return
+    # leaf mode operations
+    def __next__(self):
+        """get next node from self in linear leaf sequence, or return None."""
+        if self.flag not in LeafFlags:
+            raise ValueError("cannot get next for non-leaf.")
+        place = self.indices[self.size]
+        if place == nilseek:
+            return None
+        else:
+            node = self.clone(place)
+            node = node.materialize()
+            return node
 
-        # fallback to right
-        self.contents.extend(right_sib.contents)
-        self.data.extend(right_sib.data)
-        parent.remove(parent_index, ancestors)
-
-
-class BTree(object):
-    BRANCH = LEAF = _BNode
-
-    def __init__(self, order):
-        self.order = order
-        self._root = self._bottom = self.LEAF(self)
-
-    def _path_to(self, item):
+    def putvalue(self, key, value):
+        """put key->value mapping into leaf node.
         """
-
-        """
-        current = self._root
-        ancestry = []
-
-        while getattr(current, "children", None):
-            index = bisect.bisect_left(current.contents, item)
-            ancestry.append((current, index))
-            if index < len(current.contents) \
-                    and current.contents[index] == item:
-                return ancestry
-            current = current.children[index]
-
-        index = bisect.bisect_left(current.contents, item)
-        ancestry.append((current, index))
-        present = index < len(current.contents)
-        present = present and current.contents[index] == item
-        return ancestry
-
-    def _present(self, item, ancestors):
-        last, index = ancestors[-1]
-        return index < len(last.contents) and last.contents[index] == item
-
-    def insert(self, item):
-        current = self._root
-        ancestors = self._path_to(item)
-        node, index = ancestors[-1]
-        while getattr(node, "children", None):
-            node = node.children[index]
-            index = bisect.bisect_left(node.contents, item)
-            ancestors.append((node, index))
-        node, index = ancestors.pop()
-        node.insert(index, item, ancestors)
-
-    def remove(self, item):
-        current = self._root
-        ancestors = self._path_to(item)
-
-        if self._present(item, ancestors):
-            node, index = ancestors.pop()
-            node.remove(index, ancestors)
+        if not isinstance(key, str) and not isinstance(key, int):
+            raise ValueError("bad key, value" + repr((key, value)))
+        if self.flag not in LeafFlags:
+            raise ValueError("cannot get next for non-leaf.")
+        valid_keys = self.valid_keys
+        indices = self.indices
+        keys = self.keys
+        if valid_keys <= 0:  # empty
+            # "first entry", (key, value)
+            indices[0] = value
+            keys[0] = key
+            self.valid_keys = 1
         else:
-            raise ValueError("%r not in %s" % (item, self.__class__.__name__))
-
-    def __contains__(self, item):
-        return self._present(item, self._path_to(item))
-
-    def __iter__(self):
-        def _recurse(node):
-            if node.children:
-                for child, item in zip(node.children, node.contents):
-                    for child_item in _recurse(child):
-                        yield child_item
-                    yield item
-                for child_item in _recurse(node.children[-1]):
-                    yield child_item
+            place = None
+            if key in keys:
+                place = keys.index(key)
+                if place >= valid_keys: place = None
+            if place is not None:
+                keys[place] = key
+                indices[place] = value
             else:
-                for item in node.contents:
-                    yield item
+                if valid_keys >= self.size:
+                    # print "node out of room"
+                    # for x in self.__dict__.items(): print x
+                    raise NoRoomError("no room")
+                place = bisect(keys, key, 0, valid_keys)
+                # print "next entry at", place
+                # next = place+1
+                last = valid_keys + 1
+                del keys[valid_keys]
+                del indices[valid_keys]
+                keys.insert(place, key)
+                indices.insert(place, value)
+                self.valid_keys = last
 
-        for item in _recurse(self._root):
-            yield item
+    def put_all_values(self, keys_indices):
+        """optimization for node restructuring."""
+        self.clear()
+        indices = self.indices
+        keys = self.keys
+        length = self.valid_keys = len(keys_indices)
+        if length > self.size:
+            raise IndexError("bad length " + repr(length))
+        # if length<self.size/2-1: # not valid for delete (?)
+        #   raise IndexError, "not enough keys"+`length`
+        for i in range(length):
+            (keys[i], indices[i]) = keys_indices[i]
 
-    def __repr__(self):
-        def recurse(node, accum, depth):
-            accum.append(("  " * depth) + repr(node))
-            for node in getattr(node, "children", []):
-                recurse(node, accum, depth + 1)
+    def put_all_positions(self, first_position, keys_positions):
+        """optimization for restructuring."""
+        self.clear()
+        indices = self.indices
+        keys = self.keys
+        length = self.valid_keys = len(keys_positions)
+        if length > self.size:
+            raise IndexError("bad length " + repr(length))
+        # if length<self.size/2: # not valid for delete (?)
+        #   raise IndexError, "not enough keys"+`length`
+        indices[0] = first_position
+        for i in range(length):
+            (keys[i], indices[i + 1]) = keys_positions[i]
 
-        accum = []
-        recurse(self._root, accum, 0)
-        return "\n".join(accum)
+    def delvalue(self, key):
+        keys = self.keys
+        indices = self.indices
+        if key not in keys:
+            raise KeyError("missing key, can't delete")
+        place = keys.index(key)
+        valid_keys = self.valid_keys
+        # next = place + 1
+        prev = valid_keys - 1
+        # keys[place:prev] = keys[next:valid_keys]
+        # indices[place:prev] = indices[next:valid_keys]
+        del keys[place]
+        del indices[place]
+        keys.insert(prev, "")
+        indices.insert(prev, nilseek)
+        self.valid_keys = valid_keys - 1
+        # keys[prev] = ""
+        # indices[prev] = nilseek
 
-    @classmethod
-    def bulkload(cls, items, order):
-        tree = object.__new__(cls)
-        tree.order = order
-
-        leaves = tree._build_bulkloaded_leaves(items)
-        tree._build_bulkloaded_branches(*leaves)
-
-        return tree
-
-    def _build_bulkloaded_leaves(self, items):
-        minimum = self.order // 2
-        leaves, seps = [[]], []
-
-        for item in items:
-            if len(leaves[-1]) < self.order:
-                leaves[-1].append(item)
-            else:
-                seps.append(item)
-                leaves.append([])
-
-        if len(leaves[-1]) < minimum and seps:
-            last_two = leaves[-2] + [seps.pop()] + leaves[-1]
-            leaves[-2] = last_two[:minimum]
-            leaves[-1] = last_two[minimum + 1:]
-            seps.append(last_two[minimum])
-
-        return [self.LEAF(self, contents=node) for node in leaves], seps
-
-    def _build_bulkloaded_branches(self, leaves, seps):
-        minimum = self.order // 2
-        levels = [leaves]
-
-        while len(seps) > self.order + 1:
-            items, nodes, seps = seps, [[]], []
-
-            for item in items:
-                if len(nodes[-1]) < self.order:
-                    nodes[-1].append(item)
-                else:
-                    seps.append(item)
-                    nodes.append([])
-
-            if len(nodes[-1]) < minimum and seps:
-                last_two = nodes[-2] + [seps.pop()] + nodes[-1]
-                nodes[-2] = last_two[:minimum]
-                nodes[-1] = last_two[minimum + 1:]
-                seps.append(last_two[minimum])
-
-            offset = 0
-            for i, node in enumerate(nodes):
-                children = levels[-1][offset:offset + len(node) + 1]
-                nodes[i] = self.BRANCH(self, contents=node, children=children)
-                offset += len(node) + 1
-
-            levels.append(nodes)
-
-        self._root = self.BRANCH(self, contents=seps, children=levels[-1])
-
-
-class BPlusTree(BTree):
-    LEAF = _BPlusLeaf
-
-    def _get(self, key):
-        node, index = self._path_to(key)[-1]
-
-        if index == len(node.contents):
-            if node.next:
-                node, index = node.next, 0
-            else:
-                return
-
-        while node.contents[index] == key:
-            yield node.data[index]
-            index += 1
-            if index == len(node.contents):
-                if node.next:
-                    node, index = node.next, 0
-                else:
-                    return
-
-    def _path_to(self, item):
-        path = super(BPlusTree, self)._path_to(item)
-        node, index = path[-1]
-        while hasattr(node, "children"):
-            node = node.children[index]
-            index = bisect.bisect_left(node.contents, item)
-            path.append((node, index))
-        return path
-
-    def get(self, key, default=None):
+    def getvalue(self, key):
+        """get value exactly matching key."""
         try:
-            return next(self._get(key))
-        except StopIteration:
-            return default
+            place = self.keys.index(key)
+        except ValueError:
+            raise KeyError("key not found: " + repr(key))
+        else:
+            return self.indices[place]
 
-    def getlist(self, key):
-        return list(self._get(key))
+    def newneighbor(self, position):
+        """make a new leaf adjacent to self"""
+        if self.flag not in LeafFlags:
+            raise ValueError("cannot make leaf neighbor for non-leaf.")
+        neighbor = self.clone(position)
+        size = self.size
+        indices = self.indices
+        neighbor.indices[size] = indices[size]
+        indices[size] = position
+        return neighbor
 
-    def insert(self, key, data):
-        path = self._path_to(key)
-        node, index = path.pop()
-        node.insert(index, key, data, path)
+    def nextneighbor(self):
+        """return next leaf in tree, or None."""
+        if self.flag not in LeafFlags:
+            raise ValueError("cannot get leaf neighbor for non-leaf.")
+        size = self.size
+        position = self.indices[size]
+        if position == nilseek:
+            return None
+        else:
+            neighbor = self.clone(position)
+            neighbor = neighbor.materialize()
+            return neighbor
 
-    def remove(self, key):
-        path = self._path_to(key)
-        node, index = path.pop()
-        node.remove(index, path)
+    def delnext(self, next, free):
+        # print "delnext"
+        # print self.indices, self.position
+        # print next.indices, next.position
+        size = self.size
+        if self.indices[size] != next.position:
+            raise ValueError("invalid next pointer")
+        self.indices[size] = next.indices[size]
+        return next.free(free)
 
-    __getitem__ = get
-    __setitem__ = insert
-    __delitem__ = remove
+    # free list mode operations
+    def free(self, freenodeposition):
+        """add self to free list, return position as new
+           free position."""
+        self.flag = FreeFlag
+        self.indices[0] = freenodeposition
+        self.store()
+        return self.position
 
-    def __contains__(self, key):
-        for item in self._get(key):
-            return True
-        return False
+    def unfree(self, flag):
+        """Assuming self is head of free list,
+           pop self off freelist, return next free elt position
+           DOES NOT STORE.
+           """
+        next = self.indices[0]
+        self.flag = flag
+        self.valid_keys = 0
+        self.indices[0] = nilseek
+        self.clear()
+        return next
 
-    def iteritems(self):
-        node = self._root
-        while hasattr(node, "children"):
-            node = node.children[0]
+    def clone(self, position):
+        """return a Node of same shape as self."""
+        if self.fifo:
+            dict = self.fifo.fifo_dict
+            if position in dict:
+                return dict[position]
+        return Node(self.flag, self.size, self.keylen,
+                    position, self.infile, self)
 
-        while node:
-            for pair in zip(node.contents, node.data):
-                yield pair
-            node = node.next
+    def getfreenode(self, freeposition, freenode_callback=None):
+        """get free node of same shape as self from self.file
+           make one if none exists.  Assume freeposition is
+           seek position of next free node.
+           returns (node, newfreeposition)
+           if freenode_callback is specified, it is a function to call
+           with a new free list head, if needed freenode_callback(int)
+           """
+        file = self.infile
+        if freeposition == nilseek:
+            # add at last position in file
+            # save = file.tell()
+            file.seek(0, 2)  # goto eof
+            position = file.tell()
+            thenode = self.clone(position)
+            thenode.store()  # write new record
+            # file.seek(save)
+            return (thenode, nilseek)
+        else:
+            # get node at position
+            position = freeposition
+            thenode = self.clone(position)
+            thenode = thenode.materialize()  # get old node
+            next = thenode.indices[0]
+            if freenode_callback is not None:
+                freenode_callback(next)
+            thenode.__init__(self.flag, self.size,
+                             self.keylen, position, self.infile)
+            thenode.store()  # save reinitialized node
+            return (thenode, next)
 
-    def iterkeys(self):
-        return map(operator.itemgetter(0), self.iteritems())
+    def materialize(self):
+        """read self from file."""
+        # print "materialize", self.position
+        position = self.position
+        if self.fifo:
+            fifo = self.fifo
+            # look in fifo
+            dict = fifo.fifo_dict
+            ff = fifo.fifo
+            if position in dict:
+                # print "using fifo", position
+                node = dict[position]
+                if node is not ff[0]:
+                    ff.remove(node)
+                    ff.insert(0, node)
+                # if len(ff)!=len(dict): raise "whoops"
+                return node
+        f = self.infile
+        # f.flush() # ? needed ?
+        # save = f.tell()
+        f.seek(position)
+        data = f.read(self.storage)
+        self.delinearize(data)
+        # f.seek(save) # go back
+        if self.fifo:
+            self.add_to_fifo()
+        return self
 
-    def itervalues(self):
-        return map(operator.itemgetter(1), self.iteritems())
+    def add_to_fifo(self):
+        fifo = self.fifo
+        ff = fifo.fifo
+        dict = fifo.fifo_dict
+        # if len(dict)!=len(ff): raise "whoops before"
+        position = self.position
+        if position in dict:
+            old = dict[position]
+            del dict[position]
+            ff.remove(old)
+        dict[self.position] = self
+        # if self in ff: ff.remove(self)
+        ff.insert(0, self)
+        if len(ff) > self.fifo.fifosize:
+            last = ff[-1]
+            del ff[-1]
+            del dict[last.position]
+            # print "storing", last.position
+            if last.dirty:
+                last.store(1)
+                # if len(dict)!=len(fifo): raise "whoops"
 
-    __iter__ = iterkeys
+    def enable_fifo(self, size=33):
+        "you better disable it later!"
+        if size < 5 or size > 1000000:
+            raise ValueError("size not valid: " + repr(size))
+        self.fifo = NodeFifo(size)
 
-    def items(self):
-        return list(self.iteritems())
+    def disable_fifo(self):
+        # print "disabling fifo", self.fifo_dict.keys()
+        # global fifo_on
+        if self.fifo:
+            self.fifo.flush_fifo()
+            self.fifo = None
+
+    def store(self, force=0):
+        """write self to file at self.position
+           return end of record seek position."""
+        # print "store", self.position
+        position = self.position
+        fifo = self.fifo
+        if not force and fifo:
+            fd = fifo.fifo_dict
+            if self.position in fd and fd[position] is self:
+                self.dirty = 1
+                return  # defer
+        f = self.infile
+        # save = f.tell()
+        f.seek(position)
+        data = self.linearize()
+        f.write(data)
+        last = f.tell()
+        # f.seek(save)
+        self.dirty = 0
+        if not force and self.fifo:
+            self.add_to_fifo()
+        return last
+
+    def linearize(self):
+        """create record format for self."""
+        from marshal import dumps
+        all = [self.flag, self.valid_keys] + self.indices + self.keys
+        s = dumps(all)
+        ls = len(s)
+        storage = self.storage
+        if (ls > storage):
+            raise ValueError("bad storage: " + repr(s))
+        s = s + b'X' * (storage - ls)
+        return s
+
+        # indices = self.indices
+        # in debug prepend seek position
+        # if debug: indices = [self.position] + indices
+        # ints = encodeints(indices)
+        # keys = encodestrs(self.keys, self.keylen)
+        # valid_keys = self.valid_keys
+        # if valid_keys<0: v = "*" # dummy purposes only (prewrites)
+        # else: v = chr(self.valid_keys ^ CMASK) # try to make v readable
+        # return "%s%s%s%s%s" % (self.flag, v, ints, keys, SEPARATOR)
+
+    __print__ = linearize
+
+    def delinearize(self, str):
+        """parse, store from record format from self."""
+        from marshal import loads
+        all = loads(str)
+        [self.flag, self.valid_keys] = all[:2]
+        # self.flag = chr(ordflag)
+        s = self.size
+        next = 2 + s + 1
+        indices = self.indices = all[2:next]
+        keys = self.keys = all[next:]
+        if len(keys) != s:
+            raise ValueError("bad keys: " + repr(keys) + repr(len(keys)))
+
+    def dump(self, indent=""):
+        flag = self.flag
+        if flag == FreeFlag:
+            print('free->', self.position, end=' ')
+            nextp = self.indices[0]
+            if nextp != nilseek:
+                next = self.clone(nextp)
+                next = next.materialize()
+                next.dump()
+            else:
+                print("!last")
+            return
+        nextindent = indent + "   "
+        print(indent, end=' ')
+        if flag == RootFlag:
+            print("root", end=' ')
+        elif flag == InteriorFlag:
+            print("interior", end=' ')
+        elif flag == LeafFlag:
+            print("leaf", end=' ')
+        elif flag == LeafAndRootFlag:
+            print("root and leaf", end=' ')
+        else:
+            print("invalid flag???", flag, end=' ')
+        print(self.position, "valid=", self.valid_keys)
+        print(indent, "keys", self.keys)
+        print(indent, "seeks", self.indices)
+        if flag in [RootFlag, InteriorFlag]:
+            # interior
+            for i in self.indices:
+                if i != nilseek:
+                    n = self.clone(i)
+                    n = n.materialize()
+                    n.dump(nextindent)
+        else:
+            # leaf
+            pass
+        print(indent, "*****")
+
+
+class BplusTree:
+    """Basic B+tree maps fixed length strings to integers
+       (could be seek positions)"""
+
+    length = None  # fill in later
+
+    dirty = 0  # default
+
+    # length keylen, nodesize, root_seek, free
+    header_format = "%10d %10d %10d %10d %10d\n"
+
+    def __init__(self, infile, position=None, nodesize=None, keylen=None):
+        """infile should be open file in "rb" or "w+b" mode.
+           if optional args are not given they are determined
+           from first line in file.
+        """
+        # print "BPlusTree(%s, %s, %s)" % (position, nodesize, keylen)
+        if keylen is not None and keylen <= 2:
+            raise ValueError("keylen must be greater than 2")
+        self.root_seek = nilseek  # dummy
+        self.free = nilseek
+        self.root = None
+        self.file = infile
+        self.nodesize = nodesize
+        self.keylen = keylen
+        if position is None:
+            position = 0
+        self.position = position
+        # if nodesize is None:
+        #   self.get_parameters()
+
+    def walker(self,
+               keylower=None, includelower=None,
+               keyupper=None, includeupper=None):
+        return BplusWalker(self, keylower, includelower,
+                           keyupper, includeupper)
+
+    def init_params(self):
+        return (self.file, self.position, self.nodesize, self.keylen)
+
+    def getfile(self):
+        return self.file
+
+    def getroot(self):
+        return self.root
+
+    def update_freelist(self, position):
+        if self.free != position:
+            self.free = position
+            self.reset_header()
+
+    def startup(self):
+        """startup the file, write header, set root"""
+        if self.nodesize is None or self.keylen is None:
+            raise ValueError("cannot initialize without nodesize, keylen specified")
+        self.length = 0
+        self.reset_header()
+        file = self.file
+        file.seek(0, 2)  # goto eof
+        self.root_seek = file.tell()
+        self.reset_header()
+        root = self.root = Node(LeafAndRootFlag, self.nodesize, self.keylen,
+                                self.root_seek, file)
+        root.store()
+
+    def open(self):
+        """get info on existing file."""
+        file = self.file
+        self.get_parameters()
+        self.root = Node(LeafAndRootFlag, self.nodesize, self.keylen,
+                         self.root_seek, file)
+        self.root = self.root.materialize()
+
+    fifo_enabled = 0
+
+    def enable_fifo(self, size=33):
+        # print "fifo enabled"
+        self.fifo_enabled = 1
+        self.root.enable_fifo(size)
+
+    def disable_fifo(self):
+        # print "fifo disabled"
+        self.fifo_enabled = 0
+        if self.dirty:
+            self.reset_header()
+            self.dirty = 0
+        self.root.disable_fifo()
+
+    def reset_header(self):
+        """reset the header of the file"""
+        if self.fifo_enabled:
+            self.dirty = 1
+            return  # defer
+        file = self.file
+        file.seek(self.position)
+        # file.write( self.header_format %
+        # (self.length, self.keylen, self.nodesize, self.root_seek, self.free) )
+        from marshal import dump
+        dump((self.length, self.keylen, self.nodesize, self.root_seek, self.free),
+             file)
+
+    def get_parameters(self):
+        file = self.file
+        # save = file.tell()
+        file.seek(self.position)
+        from marshal import load
+        temp = load(file)
+        # print temp, self.position
+        (self.length, self.keylen, self.nodesize, self.root_seek, self.free) = \
+            temp
+        # file.seek(save)
+
+    def __len__(self):
+        if self.length is None:
+            self.get_parameters()
+        return self.length
+
+    def __getitem__(self, key):
+        """self[key] -- get item associated with key"""
+        if self.root is None: raise ValueError("not open!")
+        return self.find(key, self.root)
+
+    def has_key(self, key):
+        try:
+            test = self[key]
+        except KeyError:
+            return 0
+        else:
+            return 1
+
+    def __setitem__(self, key, value):
+        """self[key]=value -- set map for key to value"""
+        if not isinstance(key, str): raise ValueError("key must be string")
+        if not isinstance(value, int): raise ValueError("value must be int")
+        if len(key) > self.keylen: raise ValueError("key too long")
+        if value < 0: raise ValueError("value must be positive")
+        current_length = self.length
+        # if FORBIDDEN in key:
+        #   raise ValueError, "key cannot contain "+`FORBIDDEN`
+        root = self.root
+        if root is None: raise ValueError("not open!")
+        # global test1 #debug
+        test1 = self.set(key, value, self.root)
+        # do we need to split root?
+        if test1 is not None:
+            # print "splitting root", `test1`
+            (leftmost, node) = test1
+            # print "leftmost", leftmost, node
+            # make a non-leaf root
+            (newroot, self.free) = root.getfreenode(self.free)
+            newroot.flag = RootFlag
+            if root.flag is LeafAndRootFlag:
+                root.flag = LeafFlag
+            else:
+                root.flag = InteriorFlag
+            newroot.clear()
+            newroot.put_first_index(root.position)
+            newroot.put_node(leftmost, node)
+            self.root = newroot
+            self.root_seek = newroot.position
+            newroot.store()
+            root.store()
+            self.reset_header()
+        else:
+            if self.length != current_length:
+                self.reset_header()
+
+    def __delitem__(self, key):
+        """del self[key] -- remove map for key to value"""
+        root = self.root
+        currentlength = self.length
+        self.remove(key, root)
+        if root.flag == RootFlag:
+            valid_keys = root.valid_keys
+            if valid_keys < 1:
+                if valid_keys < 0:
+                    raise ValueError("invalid empty non-leaf root")
+                newroot = self.root = root.get_node(None)
+                self.root_seek = newroot.position
+                self.free = root.free(self.free)
+                self.reset_header()
+                if newroot.flag == LeafFlag:
+                    newroot.flag = LeafAndRootFlag
+                else:
+                    newroot.flag = RootFlag
+                newroot.store()
+            elif self.length != currentlength:
+                self.reset_header()
+        elif root.flag != LeafAndRootFlag:
+            raise ValueError("invalid flag for root")
+        elif self.length != currentlength:
+            self.reset_header()
+
+    def set(self, key, value, node):
+        """insert key-->value starting at node.
+           return None if no split, else return
+              (leftmostkey, newnode)
+        """
+        keys = node.keys
+        valid_keys = node.valid_keys
+        if node.flag in InteriorFlags:
+            # non leaf
+            # find the descendent to insert in
+            place = bisect(keys, key, 0, valid_keys)
+            # print place, key, valid_keys, keys
+            if place >= valid_keys or keys[place] >= key:
+                # insert at previous node
+                index = place
+            else:
+                # index at node
+                index = place + 1
+            if index == 0:
+                nodekey = None
+            else:
+                nodekey = keys[place - 1]
+            # print "nodekey", nodekey, node.indices
+            nextnode = node.get_node(nodekey)
+            test = self.set(key, value, nextnode)
+            # split?
+            if test is not None:
+                (leftmost, insertnode) = test
+                try:
+                    # insert if room
+                    node.put_node(leftmost, insertnode)
+                except NoRoomError:
+                    # no room, split
+                    insertindex = insertnode.position
+                    (newnode, self.free) = node.getfreenode(
+                        self.free, self.update_freelist)
+                    newnode.flag = InteriorFlag
+                    ki = node.keys_indices("dummy")
+                    (dummy, firstindex) = ki[0]
+                    # remove dummy
+                    ki = ki[1:]
+                    # insert new pair
+                    insort(ki, (leftmost, insertindex))
+                    newleftmost = self.divide_entries(firstindex, node, newnode, ki)
+                    node.store()
+                    newnode.store()
+                    return (newleftmost, newnode)
+                else:
+                    node.store()
+                    return None  # no split
+        else:
+            # leaf
+            if key not in keys or keys.index(key) >= valid_keys:
+                newlength = self.length + 1
+            else:
+                newlength = self.length
+            try:
+                # insert if room
+                node.putvalue(key, value)
+            except NoRoomError:
+                # no room: split
+                # get entries (dummy is ignored for leaves)
+                ki = node.keys_indices("dummy")
+                insort(ki, (key, value))
+                (newnode, self.free) = node.getfreenode(
+                    self.free, self.update_freelist)
+                newnode = node.newneighbor(newnode.position)
+                newnode.flag = LeafFlag
+                # 0 is dummy firstindex, ignored for leaves
+                newleftmost = self.divide_entries(0, node, newnode, ki)
+                node.store()
+                newnode.store()
+                self.length = newlength
+                return (newleftmost, newnode)
+            else:
+                node.store()
+                self.length = newlength
+                return None
+
+    def remove(self, key, node):
+        """remove key from tree at node.
+           raise KeyError if absent.
+           return (leftmost, size) if leftmost changes.
+           otherwise return (None, size).
+           Caller is responsible for restructuring node, if needed.
+        """
+        newnodekey = None
+        if node.flag in InteriorFlags:
+            # nonleaf
+            keys = node.keys
+            valid_keys = node.valid_keys
+            place = bisect(keys, key, 0, valid_keys)
+            if place >= valid_keys or keys[place] >= key:
+                # delete at tree before place
+                index = place
+            else:
+                # delete at tree for place
+                index = place + 1
+            if index == 0:
+                nodekey = None
+            else:
+                nodekey = keys[place - 1]
+            nextnode = node.get_node(nodekey)
+            # recursively remove from nextnode
+            (lm, size) = self.remove(key, nextnode)
+            # is nextnode now too small?
+            nodesize = self.nodesize
+            half = nodesize / 2
+            if (size < half):
+                # restructure, ugly!
+                # find another node for redistribution
+                if nodekey is None and valid_keys == 0:
+                    raise IndexError("invalid node, only one child!")
+                if place >= valid_keys:
+                    # final node, get previous
+                    rightnode = nextnode
+                    rightkey = nodekey
+                    if valid_keys <= 1:
+                        leftkey = None
+                    else:
+                        leftkey = keys[place - 2]
+                    leftnode = node.get_node(leftkey)
+                else:
+                    # non-final, get next
+                    leftnode = nextnode
+                    leftkey = nodekey
+                    if index == 0:
+                        rightkey = keys[0]
+                    else:
+                        rightkey = keys[place]
+                    rightnode = node.get_node(rightkey)
+                # get all keys, indices
+                rightki = rightnode.keys_indices(rightkey)
+                leftki = leftnode.keys_indices(leftkey)
+                ki = leftki + rightki
+                # redistribute or merge?
+                # print "ki, nodesize", ki, nodesize
+                lki = len(ki)
+                if lki > nodesize or (leftnode.flag != LeafFlag and lki >= nodesize):
+                    # redistribute
+                    (newleftkey, firstindex) = ki[0]
+                    if leftkey == None:
+                        newleftkey = lm
+                    if leftnode.flag != LeafFlag:
+                        # nuke first ki
+                        ki = ki[1:]
+                    newrightkey = self.divide_entries(
+                        firstindex, leftnode, rightnode, ki)
+                    # delete, reinsert right
+                    node.del_node(rightkey)
+                    node.put_node(newrightkey, rightnode)
+                    # ditto for left if first changed
+                    if (leftkey != None and leftkey != newleftkey):
+                        node.del_node(leftkey)
+                        node.put_node(newleftkey, leftnode)
+                    node.store()
+                    leftnode.store()
+                    rightnode.store()
+                else:
+                    # merge into left, free right
+                    (newleftkey, firstindex) = ki[0]
+                    # leftnode.clear()
+                    if leftnode.flag != LeafFlag:
+                        # leftnode.put_first_index(firstindex)
+                        # del ki[0]
+                        # for (k,i) in ki:
+                        #    leftnode.put_position(k,i)
+                        leftnode.put_all_positions(firstindex, ki[1:])
+                    else:
+                        # for (k,i) in ki:
+                        #    leftnode.putvalue(k,i)
+                        leftnode.put_all_values(ki)
+                    if rightnode.flag == LeafFlag:
+                        self.free = leftnode.delnext(rightnode, self.free)
+                    else:
+                        self.free = rightnode.free(self.free)
+                    if leftkey is not None and newleftkey != leftkey:
+                        node.del_node(leftkey)
+                        node.put_node(newleftkey, leftnode)
+                    node.del_node(rightkey)
+                    node.store()
+                    leftnode.store()
+                    self.reset_header()
+                if leftkey is None: newnodekey = lm
+            else:
+                # no restructure
+                # update leftmost, if needed
+                if nodekey is None:
+                    newnodekey = lm
+                elif lm is not None:
+                    node.del_node(nodekey)
+                    node.put_node(lm, nextnode)
+                    # end of restructure if
+        else:
+            # leaf, base case: just delete it
+            if node.valid_keys < 1:
+                # should only happen for empty root
+                raise KeyError("no such key")
+            first = node.keys[0]
+            node.delvalue(key)
+            rest = node.keys[0]
+            if first != rest:
+                newnodekey = rest
+            node.store()
+            self.length = self.length - 1
+        return (newnodekey, node.valid_keys)
+
+    def divide_entries(self, firstindex, node1, node2, entries):
+        """divide presorted entries evenly among node1, node2
+           return leftmost of node2.
+           firstindex is ignored for leaves
+        """
+        middle = len(entries) / 2 + 1
+        # node1.clear()
+        # node2.clear()
+        if node1.flag in InteriorFlags:
+            # middle = middle+1
+            left = entries[:middle]
+            right = entries[middle:]
+            # print "left, right", left, right
+            # nonleaf
+            # node1.put_first_index(firstindex)
+            # for (k,i) in left:
+            #    node1.put_position(k,i)
+            (leftmost, midindex) = right[0]
+            # node2.put_first_index(midindex)
+            # for (k,i) in right[1:]:
+            #    node2.put_position(k, i)
+            node1.put_all_positions(firstindex, left)
+            node2.put_all_positions(midindex, right[1:])
+            return leftmost
+        else:
+            # leaf
+            left = entries[:middle]
+            right = entries[middle:]
+            # for (k,i) in left:
+            #    node1.putvalue(k,i)
+            # for (k,i) in right:
+            #    node2.putvalue(k,i)
+            node1.put_all_values(left)
+            node2.put_all_values(right)
+            return right[0][0]
+
+    def find(self, key, node):
+        """find key starting at node."""
+        while node.flag in InteriorFlags:
+            # non-leaf
+            thesekeys = node.keys
+            valid_keys = node.valid_keys
+            # find place at or just beyond key
+            place = bisect(thesekeys, key, 0, valid_keys)
+            if place >= valid_keys or thesekeys[place] > key:
+                if place == 0:
+                    nodekey = None
+                else:
+                    nodekey = thesekeys[place - 1]
+            else:
+                nodekey = key
+            node = node.getnode(nodekey)
+        return node.getvalue(key)
+
+    def dump(self):
+        self.root.dump()
+        if self.free != nilseek:
+            free = self.root.clone(self.free)
+            free = free.materialize()
+            free.dump()
+
+    def __del__(self):
+        if self.fifo_enabled:
+            self.disable_fifo()
+
+
+class BplusWalker:
+    """iterative walker for bplustree leaf nodes."""
+
+    def __init__(self, tree,
+                 keylower=None, includelower=None,
+                 keyupper=None, includeupper=None):
+        """initialize a walker for tree with key values bounded
+           by upper/lower, if given, included or excluded as specified.
+           Tree should never be updated while walker is active,
+           otherwise behaviour of walker is undefined."""
+        self.tree = tree
+        self.keylower = keylower
+        self.includelower = includelower
+        self.keyupper = keyupper
+        self.includeupper = includeupper
+        if self.tree.getroot() == None:
+            self.tree.open()
+        # get the first pertinent leaf in tree
+        node = self.tree.getroot()
+        while node.flag in InteriorFlags:
+            # interior node, seek a leaf
+            if keylower is None:
+                nkey = None
+            else:
+                keys = node.get_keys()
+                place = bisect(keys, keylower)
+                if place == 0:
+                    nkey = None
+                elif place > len(keys):
+                    nkey = keys[-1]
+                else:
+                    nkey = keys[place - 1]
+            node = node.get_node(nkey)
+        self.node = self.startnode = node
+        # preinit
+        self.node_index = None
+        self.valid = 0  # pessimism
+        self.first()
+
+    def first(self):
+        """reset walker to first position, or raise IndexError
+           if keyrange is empty."""
+        node = self.node = self.startnode
+        # is the key in the node?
+        keys = node.keys
+        # print "first at", keys
+        keylower = self.keylower
+        keyupper = self.keyupper
+        valid_keys = node.valid_keys
+        self.valid = 0
+        if keylower == None:
+            self.node_index = 0
+            self.valid = 1
+        elif keylower in keys and self.includelower:
+            index = self.node_index = keys.index(keylower)
+            if index < valid_keys:
+                self.valid = 1  # hurrah!
+        if not self.valid:
+            # look for next
+            place = bisect(keys, keylower, 0, valid_keys)
+            if place < valid_keys:
+                index = self.node_index = place
+                testk = keys[index]
+                if (testk > keylower or
+                        (self.includelower and testk == keylower)):
+                    self.valid = 1
+                else:
+                    self.valid = 0
+            else:
+                # advance to the next node
+                next = node.nextneighbor()
+                if next is not None:
+                    self.startnode = next
+                    self.first()
+                    return
+                else:
+                    self.valid = 0
+        # test keyupper
+        if self.valid and keyupper is not None:
+            key = self.current_key()
+            if key < keyupper or (self.includeupper and key == keyupper):
+                self.valid = 1
+            else:
+                self.valid = 0
+
+    def current_key(self):
+        """key the walker currently "points at"."""
+        if self.valid:
+            return self.node.keys[self.node_index]
+        else:
+            raise IndexError("not at valid index")
+
+    def current_value(self):
+        """value the walker currently "points at"."""
+        # print "current at", self.node_index, self.node.indices
+        if self.valid:
+            return self.node.indices[self.node_index]
+        else:
+            raise IndexError("not at valid index")
+
+    def __next__(self):
+        """advance to next position, or set to invalid."""
+        nextp = self.node_index + 1
+        node = self.node
+        if nextp >= node.valid_keys:
+            # goto next node
+            next = node.nextneighbor()
+            if next is None:
+                self.valid = 0
+                return
+            node = self.node = next
+            nextp = 0
+        # print "next at", node.keys, node.indices, nextp, node.valid_keys
+        if node.valid_keys <= nextp:
+            self.valid = 0
+        else:
+            testkey = node.keys[nextp]
+            keyupper = self.keyupper
+            if (keyupper is None or
+                        testkey < keyupper or
+                    (self.includeupper and testkey == keyupper)):
+                self.node_index = nextp
+                self.valid = 1
+            else:
+                self.valid = 0
+
+
+class caching_BPT(BplusTree):
+    """simple caching.  No updates allowed."""
+
+    def __init__(self, infile, position=None, nodesize=None, keylen=None):
+        BplusTree.__init__(self, infile, position, nodesize, keylen)
+        self.cache = {}
+
+    def __getitem__(self, key):
+        try:
+            return self.cache[key]
+        except KeyError:
+            r = self.cache[key] = BplusTree.__getitem__(self, key)
+            return r
+
+    def reset_cache(self):
+        self.cache = {}
+
+    def nope(self, *args):
+        raise ValueError("op not permitted for caching_BPT")
+
+    __setitem__ = __delitem__ = nope
+
+
+class SBplusTree:
+    """Wrapper for BPlusTree, maps strings-->strings.
+       Key strings are fixed length as in BPlusTree.
+       Value strings are arbitrary length but space for
+       overwritten or deleted values will be wasted in
+       the file (the aren't GC'd, unlike tree nodes which are.
+    """
+
+    # can be overridden.
+    treeclass = BplusTree
+
+    def __init__(self, infile, position=None, nodesize=None, keylen=None):
+        self.infile = infile
+        self.tree = self.treeclass(infile, position, nodesize, keylen)
+
+    def walker(self,
+               keylower=None, includelower=None,
+               keyupper=None, includeupper=None):
+        return SBplusWalker(self, keylower, includelower,
+                            keyupper, includeupper)
+
+    def __len__(self):
+        return len(self.tree)
+
+    def init_params(self):
+        return self.tree.init_params()
+
+    def getroot(self):
+        return self.tree.getroot()
+
+    def getfile(self):
+        return self.infile
+
+    def enable_fifo(self, size=33):
+        self.tree.enable_fifo(size)
+
+    def disable_fifo(self):
+        self.tree.disable_fifo()
+
+    def dump(self):
+        """ignore real values here, should fix."""
+        self.tree.dump()
+
+    def startup(self):
+        self.tree.startup()
+
+    def open(self):
+        self.tree.open()
+
+    def __getitem__(self, key):
+        seek = self.tree[key]
+        return getstring(self.infile, seek)
+
+    def __setitem__(self, key, value):
+        """Warning: overwrite "loses" old value space."""
+        # try:
+        #   test = self[key]
+        # except KeyError:
+        #   go = 1
+        # else:
+        #   go = (test != key)
+        # if go:
+        # assume overwrite (optimize)
+        seek = putstring(self.infile, value)
+        self.tree[key] = seek
+
+    def __delitem__(self, key):
+        """Warning: loses old value storage."""
+        del self.tree[key]
+
+    def has_key(self):
+        return self in self.tree
+
+
+class caching_SBPT(SBplusTree):
+    """string-->string caching b-plus tree."""
+    treeclass = caching_BPT
+
+
+class SBplusWalker:
+    """iterator for string-->string Bplus tree."""
+
+    # can be overridden
+    walkerclass = BplusWalker
+
+    def __init__(self, tree,
+                 keylower=None, includelower=None,
+                 keyupper=None, includeupper=None):
+        self.walker = self.walkerclass(tree, keylower, includelower,
+                                       keyupper, includeupper)
+        self.file = tree.getfile()
+        self.valid = self.walker.valid
+
+    def first(self):
+        self.walker.first()
+        self.valid = self.walker.valid
+
+    def current_key(self):
+        return self.walker.current_key()
+
+    def current_value(self):
+        seek = self.walker.current_value()
+        return getstring(self.file, seek)
+
+    def __next__(self):
+        next(self.walker)
+        self.valid = self.walker.valid
+
+
+def putstring(infile, s):
+    """Add a new string record to eof. return start seek."""
+    # save = infile.tell()
+    # seek to eof
+    infile.seek(0, 2)
+    last = infile.tell()
+    from marshal import dump
+    dump(s, infile)
+    # infile.seek(save)
+    return last
+
+
+def getstring(infile, i):
+    """get an old string record at i"""
+    # save = infile.tell()
+    infile.seek(i)
+    from marshal import load
+    s = load(infile)
+    # infile.seek(save)
+    return s
+
+
+def recopy_bplus(fromfile, tofile,
+                 treeclass=BplusTree):
+    """copy BplusTree from fromfile to tofile.
+       from file should be open "rb", tofile "w+b"."""
+    fromtree = treeclass(fromfile)
+    fromtree.open()
+    (f, p, n, k) = fromtree.init_params()
+    totree = treeclass(tofile, p, n, k)
+    totree.startup()
+    return recopy_tree(fromtree, totree)
+
+
+def recopy_tree(fromtree, totree):
+    """copy fromtree contents to totree.
+       trees must be compatible.
+       copy attempts to "compactize" totree."""
+    (f, p, n, k) = totree.init_params()
+    try:
+        totree.enable_fifo()
+        walker = fromtree.walker()
+        # fill up first node in totree
+        part1 = n / 2 + 1
+        part2 = part1 - 2
+        defer = []
+        while walker.valid:
+            # pseudooptimization: defer n/2-1 tail elements
+            # for n even this makes all leaves full (in tests)
+            for i in range(part1):
+                if not walker.valid: break
+                totree[walker.current_key()] = walker.current_value()
+                next(walker)
+            for (k, v) in defer:
+                totree[k] = v
+            defer = []
+            for i in range(part2):
+                if not walker.valid: break
+                defer.append((walker.current_key(), walker.current_value()))
+                next(walker)
+        for (k, v) in defer:
+            totree[k] = v
+        return (fromtree, totree)
+    finally:
+        # print "disabling fifo"
+        totree.disable_fifo()
+
+
+def recopy_sbplus(fromfile, tofile,
+                  treeclass=SBplusTree):
+    """copy SBplusTree from fromfile to tofile.
+       from file should be open "rb", tofile "w+b".
+       this will create a new file without "lost garbage"."""
+    return recopy_bplus(fromfile, tofile, treeclass)
+
+
+##### simple dbm compatibility
+bignum = 0x7efe77  # 8 million buckets
+
+
+def myhash(s):
+    """portable string hash function.
+       (because builtin hash isn't portable)."""
+    o = ord
+    B = bignum
+    result = 775 + len(s) * 1001
+    for c in s:
+        # print result
+        result = (result * 253 + o(c) * 113) % B
+    return result
+
+
+class dbm:
+    """dbm compatible index file with unlimited key/value size.
+       overwrites, dels and hash collisions leave "junk" in index.
+       Alternate implementations left to reader, or to future.
+
+       Hash indexed into buckets in an SBplusTree.
+       buckets with marshalled dict of {key: value}
+       for elements in this bucket.
+    """
+
+    flagmap = {"r": "rb", "w": "r+b", "c": "w+b"}
+    openmodes = ("r", "w")
+    treeclass = SBplusTree
+    nodesize = 202
+
+    def __init__(self, filename, flag="r", mode=None):
+        # print "init", filename, flag, mode
+        if mode is not None:
+            raise ValueError("sorry mode not supported (portability)")
+        self.fileflag = flag
+        rf = self.realflag = self.flagmap[flag]
+        self.filename = filename
+        f = self.file = open(filename, rf)
+        # length record at start of file
+        if flag in self.openmodes:
+            from marshal import load
+            self.length = load(f)
+            # parameters determined from header
+            # print "reopening", self.length, f.tell()
+            t = self.tree = self.treeclass(f, f.tell())
+            t.open()
+        else:
+            # put length record
+            from marshal import dump
+            dump(0, f)
+            self.length = 0
+            # print "creating", self.length, f.tell()
+            t = self.tree = self.treeclass(f, f.tell(), self.nodesize, intsize - 1)
+            t.startup()
+        self.tree.enable_fifo(self.nodesize + 3)
+
+    closed = 0
+
+    def close(self):
+        if self.closed: return
+        self.tree.disable_fifo()
+        # put length record
+        if self.length < 0:
+            raise ValueError("negative len?" + repr((self.length, self.filename)))
+        f = self.file
+        if self.fileflag in ("c", "w"):
+            f.seek(0)
+            from marshal import dump
+            dump(self.length, f)
+        f.close()
+        self.closed = 1
+
+    def __del__(self):
+        self.close()
+
+    def __len__(self):
+        return self.length
+
+    def hash(self, key):
+        from marshal import dumps
+        h = myhash(key)
+        hs = dumps(h)[1:]  # nuke indicator
+        return hs
+
+    def pairs(self, hash):
+        try:
+            spairs = self.tree[hash]
+        except KeyError:
+            return {}
+        from marshal import loads
+        return loads(spairs)
+
+    def setpairs(self, hash, pairs):
+        from marshal import dumps
+        spairs = dumps(pairs)
+        self.tree[hash] = spairs
+
+    def __getitem__(self, item):
+        h = self.hash(item)
+        pairs = self.pairs(h)
+        return pairs[item]
+
+    def __setitem__(self, item, value):
+        h = self.hash(item)
+        pairs = self.pairs(h)
+        if item not in pairs:
+            self.length = self.length + 1
+        pairs[item] = value
+        self.setpairs(h, pairs)
+        # print self.length
+
+    def __delitem__(self, item):
+        h = self.hash(item)
+        pairs = self.pairs(h)
+        del pairs[item]
+        if pairs:
+            self.setpairs(h, pairs)
+        else:
+            del self.tree[h]
+        self.length = self.length - 1
+        # print self.length
+
+    def has_key(self, item):
+        try:
+            test = self[item]
+        except KeyError:
+            return 0
+        else:
+            return 1
 
     def keys(self):
-        return list(self.iterkeys())
+        """not terribly efficient! (should optimize?)"""
+        result = []
+        w = self.tree.walker()
+        from marshal import loads
+        while w.valid:
+            spairs = w.current_value()
+            pairs = loads(spairs)
+            for k in list(pairs.keys()):
+                result.append(k)
+            next(w)
+        if len(result) != self.length:
+            raise IndexError("bad tree length:" + repr((len(result), self.length)))
+        return result
 
-    def values(self):
-        return list(self.itervalues())
-
-    def _build_bulkloaded_leaves(self, items):
-        minimum = self.order // 2
-        leaves, seps = [[]], []
-
-        for item in items:
-            if len(leaves[-1]) >= self.order:
-                seps.append(item)
-                leaves.append([])
-            leaves[-1].append(item)
-
-        if len(leaves[-1]) < minimum and seps:
-            last_two = leaves[-2] + leaves[-1]
-            leaves[-2] = last_two[:minimum]
-            leaves[-1] = last_two[minimum:]
-            seps.append(last_two[minimum])
-
-        leaves = [self.LEAF(
-            self,
-            contents=[p[0] for p in pairs],
-            data=[p[1] for p in pairs])
-                  for pairs in leaves]
-
-        for i in range(len(leaves) - 1):
-            leaves[i].next = leaves[i + 1]
-
-        return leaves, [s[0] for s in seps]
-
-
-# import random
-# import unittest
-#
-#
-# class BTreeTests(unittest.TestCase):
-#	def test_additions(self):
-#		bt = BTree(20)
-#		l = range(2000)
-#		for i, item in enumerate(l):
-#			bt.insert(item)
-#			self.assertEqual(list(bt), l[:i + 1])
-#
-#	def test_bulkloads(self):
-#		bt = BTree.bulkload(range(2000), 20)
-#		self.assertEqual(list(bt), range(2000))
-#
-#	def test_removals(self):
-#		bt = BTree(20)
-#		l = range(2000)
-#		map(bt.insert, l)
-#		rand = l[:]
-#		random.shuffle(rand)
-#		while l:
-#			self.assertEqual(list(bt), l)
-#			rem = rand.pop()
-#			l.remove(rem)
-#			bt.remove(rem)
-#		self.assertEqual(list(bt), l)
-#
-#	def test_insert_regression(self):
-#		bt = BTree.bulkload(range(2000), 50)
-#
-#		for i in xrange(100000):
-#			bt.insert(random.randrange(2000))
-#
-#
-# class BPlusTreeTests(unittest.TestCase):
-#	def test_additions_sorted(self):
-#		bt = BPlusTree(20)
-#		l = range(2000)
-#
-#		for item in l:
-#			bt.insert(item, str(item))
-#
-#		for item in l:
-#			self.assertEqual(str(item), bt[item])
-#
-#		self.assertEqual(l, list(bt))
-#
-#	def test_additions_random(self):
-#		bt = BPlusTree(20)
-#		l = range(2000)
-#		random.shuffle(l)
-#
-#		for item in l:
-#			bt.insert(item, str(item))
-#
-#		for item in l:
-#			self.assertEqual(str(item), bt[item])
-#
-#		self.assertEqual(range(2000), list(bt))
-#
-#	def test_bulkload(self):
-#		bt = BPlusTree.bulkload(zip(range(2000), map(str, range(2000))), 20)
-#
-#		self.assertEqual(list(bt), range(2000))
-#
-#		self.assertEqual(
-#			list(bt.iteritems()),
-#			zip(range(2000), map(str, range(2000))))
-
-def main():
-    bt = BTree(2)
-    l = range(20, 0, -1)
-    bt.insert(8)
-    bt.insert(20)
-    bt.insert(9)
-    bt.insert(11)
-    bt.insert(15)
-
-    # for i, item in enumerate(l):
-    #	bt.insert(item)
-    #	print list(bt)
-    # assert list(bt)==l[:i + 1]
+    def copy(self, tofilename, flag, mode=None):
+        if flag == "r":
+            raise ValueError("nonsense! can't copy into read only index")
+        # print "copy", tofilename, flag
+        other = dbm(tofilename, flag, mode)
+        if flag == "c":
+            # create: make optimal
+            recopy_tree(self.tree, other.tree)
+            other.length = self.length
+            other.tree.enable_fifo(other.nodesize + 3)
+        elif flag == "w":
+            # insert-into: simple traversal (collisions waste space)
+            w = self.tree.walker()
+            from marshal import loads
+            while w.valid:
+                spairs = w.current_value()
+                pairs = loads(spairs)
+                for (k, v) in list(pairs.items()):
+                    other[k] = v
+                next(w)
+        return other
 
 
-if __name__ == '__main__':
-    # unittest.main()
-    main()
+def testdbm():
+    print("creating files test1, 2, 3 for dbm test")
+    d1 = dbm("test1", "c")
+    for x in range(10):
+        key = "hello" * x
+        d1[key] = "01234567890"[:-x]
+        print(key, d1[key])
+    print(list(d1.keys()))
+    for x in range(300):
+        d1[oct(x)] = hex(x)
+    del d1['']
+    print(len(d1), list(d1.keys()))
+    print("should be 0:", "" in d1, "abd" in d1)
+    print("copying")
+    d2 = d1.copy("test2", "c")
+    beforedel = len(d1)
+    del d2["hello"]
+    print(len(d2), list(d2.keys()))
+    d2.close()
+    d2 = dbm("test2", "r")
+    print("should be equal", beforedel - 1, len(d2))
+    print("keys", list(d2.keys()))
+    print("testing copy-into")
+    d3 = dbm("test3", "c")
+    d3["willy"] = "wally"
+    d3.close()
+    d3 = d2.copy("test3", "w")
+    print("should be equal", beforedel, len(d3))
+    print("keys", list(d3.keys()))
+
+
+### test
+def test():
+    """test program: creates a bplustree file "test".
+       try messing with the node size.
+    """
+    print("creating file 'test' in current directory for test data.")
+    f = open("test", "w+b")
+    B = SBplusTree(f, 0, 202, 10)
+    B.startup()
+    B.enable_fifo()
+    # return B
+    B["this"] = 0xdad
+    from string import ascii_letters, digits
+    for x in ascii_letters + digits: B[x] = ord(x)
+    for x in "13579finalmopq": del B[x]
+    print("final pass")
+    from time import time
+    s = time()
+    for x in range(1000): B[hex(x)] = x;  # print x
+    print("one thousand assigns", time() - s)
+    # B.dump()
+    B.disable_fifo()
+    return (B, f)
+
+
+def retest():
+    from time import time
+    f = open("test", "rb")
+    B = caching_SBPT(f)
+    B.open()
+    B.enable_fifo()
+    print("retesting")
+    for x in "abcdefghi012345":
+        try:
+            print(x, "-->", B[x])
+        except KeyError:
+            print(x, "absent")
+    print("entering torture chamber")
+    s = time()
+    for x in range(1000): l = B[hex(x)]
+    print("1 thousand retrieves: ", time() - s)
+    return B
+    print("keys, values between 4 and C (including C)")
+    W = SBplusWalker(B, "4", 0, "C", 1)
+    while W.valid:
+        print((W.current_key(), W.current_value()), end=' ')
+        next(W)
+    print()
+    print("keys, values between 4 (including 4) and C (excluding C)")
+    W = SBplusWalker(B, "4", 1, "C", 0)
+    while W.valid:
+        print((W.current_key(), W.current_value()), end=' ')
+        next(W)
+    print()
+    print("all keys")
+    W = SBplusWalker(B)
+    while W.valid:
+        print(W.current_key(), end=' ')
+        next(W)
+    print()
+    print("A to A inclusive (1 elt)")
+    W = SBplusWalker(B, "A", 1, "A", 1)
+    while W.valid:
+        print(W.current_key(), end=' ')
+        next(W)
+    print()
+    print("A to A exclusive (0 elt)")
+    W = SBplusWalker(B, "A", 1, "A", 0)
+    while W.valid:
+        print(W.current_key(), end=' ')
+        next(W)
+    print()
+    print("AA to AA inclusive (0 elt)")
+    W = SBplusWalker(B, "AA", 1, "AA", 0)
+    while W.valid:
+        print(W.current_key(), end=' ')
+        next(W)
+    print()
+    print()
+    B.disable_fifo()
+    return W, B, f
+
+
+if __name__ == "__main__":
+    (B, f) = test()
+    B = None
+    f.close()
+    retest()
