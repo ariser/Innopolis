@@ -1,16 +1,16 @@
 import os
 
 from dbms.utils import *
-# from dbms.index import Index
 from dbms.metadata import Metadata
+from dbms.vendor.btree import BPlusTree
 
 
 class Table(object):
-    meta = None
-
-    __file_path = None
+    __slots__ = ['meta', 'table_name', '__file_path', 'btree']
 
     def __init__(self, table_name):
+        self.table_name = table_name
+
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.__file_path = os.path.join(current_dir, 'tables', '%s.txt' % table_name)
 
@@ -54,6 +54,8 @@ class Table(object):
                 indicies=indicies
             )
             self.meta.length = meta_length
+
+            self.read_index()
 
     @staticmethod
     def create(name: str, attrs: tuple):
@@ -177,10 +179,15 @@ class Table(object):
                         limit=self.meta.free_space_limit,
                         delimiter=Delimiters.offset.decode(DBMS_ENCODING)
                     ).ljust(index.limit)
-                    table.write(bytes(free_space_meta, DBMS_ENCODING))
 
-                    self.meta.free_space_limit = index.limit
-                    self.meta.free_space_offset = index.offset
+                    if len(bytes(free_space_meta, DBMS_ENCODING)) <= index.limit:
+                        table.write(bytes(free_space_meta, DBMS_ENCODING))
+
+                        self.meta.free_space_limit = index.limit
+                        self.meta.free_space_offset = index.offset
+                    else:
+                        table.write(b' ' * index.limit)
+
                     self.meta.indicies.remove(index)
                     self.meta.rows_count -= 1
 
@@ -197,6 +204,8 @@ class Table(object):
         if len(row) != len(self.meta.table_schema):
             raise TypeError('Invalid tuple schema')
 
+        
+        indexes = self.btree.getlist()
         # convert all attributes to string, save the Nones
         row = tuple(map(lambda a: str(a) if a is not None else None, row))
         results = []
@@ -217,3 +226,71 @@ class Table(object):
                     results.append(attrs)
 
         return results
+
+    def read_index(self):
+        btree = BPlusTree(2)
+
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        index_file = os.path.join(current_dir, 'indexes', '%s.txt' % self.table_name)
+
+        if not os.path.isfile(index_file):
+            raise FileNotFoundError("Table wasn't indexed. Run .index() first.")
+
+        with open(index_file, 'rb') as index:
+            for line in index.readlines():
+                tmp = line.split()
+                btree.insert(tmp[0], tmp[1])
+
+        self.btree = btree
+
+    @staticmethod
+    def index(table_name, by_attr):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        table_file = os.path.join(current_dir, 'tables', '%s.txt' % table_name)
+
+        if not os.path.isfile(table_file):
+            raise FileNotFoundError('No such table')
+
+        btree = BPlusTree(2)
+
+        with open(table_file, 'rb') as table:
+            # read metadata size
+            table.seek(-Metadata.header_length, os.SEEK_END)
+            meta_length = int(table.read(Metadata.header_length))
+
+            # read all metadata
+            table.seek(-(meta_length + Metadata.header_length), os.SEEK_END)
+            meta = table.read().split()
+
+            table_schema = to_string_list(meta[0].split(Delimiters.attr))
+
+            attr_index = table_schema.index(by_attr)
+
+            indicies = []
+            for index in meta[3:-1]:
+                index_obj = index.split(Delimiters.offset)
+                indicies.append(Metadata.Index(
+                    offset=int(index_obj[0]),
+                    limit=int(index_obj[1]),
+                    attr_limits=to_int_list(index_obj[2].split(Delimiters.attr))
+                ))
+
+            for index in indicies:
+                table.seek(index.offset)
+
+                for i, limit in enumerate(index.attr_limits):
+                    if i < attr_index:
+                        table.seek(limit, os.SEEK_CUR)
+                    else:
+                        attr = table.read(limit)
+                        btree.insert(attr, index)
+                        break
+
+        index_file = os.path.join(current_dir, 'indexes', '%s.txt' % table_name)
+        with open(index_file, 'wb') as index:
+            for q in btree:
+                index.write(q)
+                index.write(b' ')
+                index.write(bytes(str(btree.get(q)), DBMS_ENCODING))
+                index.write(b'\n')

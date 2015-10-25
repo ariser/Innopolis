@@ -2,15 +2,8 @@ from dbms.const import *
 
 
 class Metadata(object):
+    __slots__ = ['length', 'table_schema', 'rows_count', 'free_space_offset', 'free_space_limit', 'indicies']
     header_length = 8
-
-    length = None
-
-    table_schema = None
-    rows_count = None
-    free_space_offset = None
-    free_space_limit = None
-    indicies = None
 
     def __init__(self, table_schema: list, rows_count: int, free_space_offset: int, free_space_limit: int,
                  indicies: list):
