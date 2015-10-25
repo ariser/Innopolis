@@ -1,11 +1,11 @@
 import os
 
 from dbms.utils import *
-from dbms.index import Index
+# from dbms.index import Index
 from dbms.metadata import Metadata
 
 
-class Table:
+class Table(object):
     meta = None
 
     __file_path = None
@@ -40,7 +40,7 @@ class Table:
             indicies = []
             for index in meta[3:-1]:
                 index_obj = index.split(Delimiters.offset)
-                indicies.append(Index(
+                indicies.append(Metadata.Index(
                     offset=int(index_obj[0]),
                     limit=int(index_obj[1]),
                     attr_limits=to_int_list(index_obj[2].split(Delimiters.attr))
@@ -104,7 +104,7 @@ class Table:
             table.write(bytes(entry, DBMS_ENCODING))
 
             self.meta.rows_count += 1
-            self.meta.indicies.append(Index(
+            self.meta.indicies.append(Metadata.Index(
                 offset=free_space_offset,
                 limit=attrs_length if available_space == FREE_SPACE_AT_END else available_space,
                 attr_limits=list(map(len, attrs))
