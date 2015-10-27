@@ -2,6 +2,7 @@ import os
 
 from dbms.utils import *
 from dbms.metadata import Metadata
+from dbms.query import Filter, _Concat, _Where
 from dbms.vendor.btree import SBplusTree, caching_SBPT
 
 
@@ -55,8 +56,6 @@ class Table(object):
             )
             self.meta.length = meta_length
 
-            self.read_index()
-
     @staticmethod
     def create(name: str, attrs: tuple):
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -78,17 +77,38 @@ class Table(object):
             table.truncate()
             table.write(bytes(str(self.meta), DBMS_ENCODING))
 
-    def insert(self, attrs):
-        if len(attrs) != len(self.meta.table_schema):
-            raise TypeError('Invalid tuple schema')
+    def __update_index(self, by_attr, key, value):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        index_file_path = os.path.join(current_dir, 'indexes', '%s_%s.txt' % (self.table_name, by_attr))
+        with open(index_file_path, 'r+b') as index_file:
+            btree = SBplusTree(index_file)
+            btree.open()
+            btree[key] = value
 
-        attrs = list(map(str, attrs))
-        attrs_length = sum(len(attr) for attr in attrs)
+
+    def insert(self, attrs, values=None):
+        if values is None:
+            values = attrs
+            attrs = self.meta.table_schema
+
+        if len(attrs) != len(values):
+            raise TypeError('Malformed insert query: attributes and values counts do not match')
+
+        for attr in attrs:
+            if attr not in self.meta.table_schema:
+                raise TypeError("Malformed insert query: can't find attribute `%s`" % attr)
+
+        new_tuple = tuple()
+        for attr in self.meta.table_schema:
+            index = attrs.index(attr) if attr in attrs else -1
+            new_tuple = new_tuple + ((str(values[index]),) if index >= 0 and values[index] is not None else ('',))
+
+        new_tuple_length = sum(len(attr) for attr in new_tuple)
         prev_free_space_offset = free_space_offset = self.meta.free_space_offset
         available_space = self.meta.free_space_limit
 
         with open(self.__file_path, 'rb+') as table:
-            while attrs_length > available_space != FREE_SPACE_AT_END:
+            while new_tuple_length > available_space != FREE_SPACE_AT_END:
                 table.seek(free_space_offset)
                 free_space_meta = table.read(available_space).split(Delimiters.offset)
                 prev_free_space_offset = free_space_offset
@@ -102,15 +122,19 @@ class Table(object):
             next_pointer = table.read(available_space)
             table.seek(free_space_offset)
 
-            entry = ''.join(attrs) if available_space == FREE_SPACE_AT_END else ''.join(attrs).ljust(available_space)
+            entry = ''.join(new_tuple) if available_space == FREE_SPACE_AT_END else ''.join(new_tuple).ljust(available_space)
             table.write(bytes(entry, DBMS_ENCODING))
 
-            self.meta.rows_count += 1
-            self.meta.indicies.append(Metadata.Index(
+            new_index = Metadata.Index(
                 offset=free_space_offset,
-                limit=attrs_length if available_space == FREE_SPACE_AT_END else available_space,
-                attr_limits=list(map(len, attrs))
-            ))
+                limit=new_tuple_length if available_space == FREE_SPACE_AT_END else available_space,
+                attr_limits=list(map(len, new_tuple))
+            )
+
+            self.__update_index('name', new_tuple[self.meta.table_schema.index('name')], new_index.as_dict())
+
+            self.meta.rows_count += 1
+            self.meta.indicies.append(new_index)
 
             if prev_free_space_offset != free_space_offset:
                 # we moved away from the metadata pointer and have to keep pointers consistent
@@ -200,6 +224,50 @@ class Table(object):
         self.delete(row)
         self.insert(new_row)
 
+    def select(self, *attrs):
+        return Filter(self, attrs)
+
+    def execute(self, query):
+        if isinstance(query, _Where):
+            raise SyntaxError("Malformed query")
+
+        if query.filter.table != self:
+            raise SyntaxError("Wrong table")
+
+        results = []
+
+        with open(self.__file_path, 'rb') as table:
+            for index in self.meta.indicies:
+                table.seek(index.offset)
+
+                attrs = {}
+                result_tuple = tuple()
+
+                for i, limit in enumerate(index.attr_limits):
+                    attr = table.read(limit).decode(DBMS_ENCODING)
+                    attrs[self.meta.table_schema[i]] = attr
+
+                for attr in query.filter.attrs:
+                    if attr not in attrs.keys():
+                        raise TypeError("Malformed insert query: can't find attribute `%s`" % attr)
+                    result_tuple = result_tuple + (attrs[attr],)
+
+                test = True
+
+                if len(query.filter.expressions) > 0:
+                    test = query.filter.expressions[0](attrs)
+
+                    for i in range(1, len(query.filter.expressions), 2):
+                        if query.filter.expressions[i] == 'and':
+                            test = test and query.filter.expressions[i+1](attrs)
+                        elif query.filter.expressions[i] == 'or':
+                            test = test or query.filter.expressions[i+1](attrs)
+
+                if test:
+                    results.append(result_tuple)
+
+        return results
+
     def search(self, row):
         if len(row) != len(self.meta.table_schema):
             raise TypeError('Invalid tuple schema')
@@ -225,26 +293,12 @@ class Table(object):
 
         return results
 
-    def read_index(self):
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        index_file_path = os.path.join(current_dir, 'indexes', '%s.txt' % self.table_name)
-
-        if not os.path.isfile(index_file_path):
-            raise FileNotFoundError("Table wasn't indexed. Run .index() first.")
-
-        with open(index_file_path, 'rb') as index_file:
-            btree = caching_SBPT(index_file)
-            btree.open()
-
-            print(btree)
-
-
     @staticmethod
     def index(table_name, by_attr):
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
         table_file_path = os.path.join(current_dir, 'tables', '%s.txt' % table_name)
-        index_file_path = os.path.join(current_dir, 'indexes', '%s.txt' % table_name)
+        index_file_path = os.path.join(current_dir, 'indexes', '%s_%s.txt' % (table_name, by_attr))
 
         if not os.path.isfile(table_file_path):
             raise FileNotFoundError('No such table')
