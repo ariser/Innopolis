@@ -1,18 +1,16 @@
 package com.company;
 
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 public interface MyTree<E> {
-    Node getRoot();
+    Node<E> getRoot();
 
-    Node setRoot(E value);
+    void traversalPreorder(Consumer<Node<E>> callback);
 
-    void traversalPreorder(Function<Node, Object> callback);
-
-    void traversalPostorder(Function<Node, Object> callback);
+    void traversalPostorder(Consumer<Node<E>> callback);
 
     interface Node<T> {
         void setValue(T value);
-
+        T getValue();
     }
 }
