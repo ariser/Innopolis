@@ -76,7 +76,7 @@ public class MyAVLTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
 
     private void leftRotate(MyBinaryTree<E>.Node<E> node) {
         MyBinaryTree<E>.Node<E> rightChild = node.getRightChild();
-        MyBinaryTree<E>.Node<E> leftChildRightChild = rightChild.getLeftChild();
+        MyBinaryTree<E>.Node<E> rightChildLeftChild = rightChild.getLeftChild();
 
         if (binTree.getRoot() == node) {
             binTree.setRoot(rightChild);
@@ -89,7 +89,7 @@ public class MyAVLTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
             }
         }
         rightChild.setLeftChild(node);
-        node.setRightChild(leftChildRightChild);
+        node.setRightChild(rightChildLeftChild);
     }
 
     private void rightRotate(MyBinaryTree<E>.Node<E> node) {
