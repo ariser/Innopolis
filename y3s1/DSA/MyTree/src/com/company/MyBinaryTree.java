@@ -3,11 +3,10 @@ package com.company;
 import java.util.function.Consumer;
 
 public class MyBinaryTree<E> extends MyAbstractTree<E> implements MyTree<E> {
-    protected Node<E> root;
+    protected Node<E> root = null;
 
     MyBinaryTree() {
-        this.root = new Node<>(null, null);
-        this.size = 1;
+        this.size = 0;
     }
 
     MyBinaryTree(E rootValue) {
@@ -18,6 +17,16 @@ public class MyBinaryTree<E> extends MyAbstractTree<E> implements MyTree<E> {
     @Override
     public Node<E> getRoot() {
         return root;
+    }
+
+    @Override
+    public void setRoot(MyTree.Node<E> node) {
+        this.root = (Node<E>)node;
+    }
+
+    @Override
+    public void addRoot(E value) {
+        this.root = new Node<>(null, value);
     }
 
     public Node<E> addLeft(Node<E> node, E value) {
@@ -36,6 +45,15 @@ public class MyBinaryTree<E> extends MyAbstractTree<E> implements MyTree<E> {
             size++;
         }
         return prevNode;
+    }
+
+    public int height() {
+        return height(getRoot());
+    }
+
+    public int height(Node<E> node) {
+        if (node == null) return -1;
+        return Math.max(height(node.getLeftChild()), height(node.getRightChild())) + 1;
     }
 
     public void set(Node<E> node, E value) {
@@ -104,9 +122,9 @@ public class MyBinaryTree<E> extends MyAbstractTree<E> implements MyTree<E> {
 
     public class Node<T> extends MyAbstractTree<T>.Node<T> implements MyTree.Node<T> {
         protected MyBinaryTree<T> tree;
-        protected Node<T> leftChild;
-        protected Node<T> rightChild;
-        protected Node<T> parent;
+        protected Node<T> leftChild = null;
+        protected Node<T> rightChild = null;
+        protected Node<T> parent = null;
 
         Node(Node<T> parent, T value) {
             setValue(value);
@@ -130,7 +148,7 @@ public class MyBinaryTree<E> extends MyAbstractTree<E> implements MyTree<E> {
         }
 
         protected Node<T> setLeftChild(Node<T> child) throws IllegalArgumentException {
-            for (Node<T> ancestor = this; ancestor != null; ancestor = child.getParent()) {
+            for (Node<T> ancestor = this; ancestor != null; ancestor = ancestor.getParent()) {
                 if (ancestor == child) {
                     throw new IllegalArgumentException("Cycle in the tree");
                 }
@@ -138,12 +156,14 @@ public class MyBinaryTree<E> extends MyAbstractTree<E> implements MyTree<E> {
 
             Node<T> prevChild = getLeftChild();
             this.leftChild = child;
-            child.setParent(this);
+            if (child != null) {
+                child.setParent(this);
+            }
             return prevChild;
         }
 
         protected Node<T> setRightChild(Node<T> child) throws IllegalArgumentException {
-            for (Node<T> ancestor = this; ancestor != null; ancestor = child.getParent()) {
+            for (Node<T> ancestor = this; ancestor != null; ancestor = ancestor.getParent()) {
                 if (ancestor == child) {
                     throw new IllegalArgumentException("Cycle in the tree");
                 }
@@ -151,7 +171,9 @@ public class MyBinaryTree<E> extends MyAbstractTree<E> implements MyTree<E> {
 
             Node<T> prevChild = getRightChild();
             this.rightChild = child;
-            child.setParent(this);
+            if (child != null) {
+                child.setParent(this);
+            }
             return prevChild;
         }
 
