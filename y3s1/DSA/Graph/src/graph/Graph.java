@@ -72,6 +72,15 @@ public class Graph<E, W extends Comparable<W>> {
         return false;
     }
 
+    public Vertex<E, W> getVertex(E element) {
+        for (Vertex<E, W> vertex : vertices) {
+            if (vertex.element.equals(element)) {
+                return vertex;
+            }
+        }
+        return null;
+    }
+
     public boolean removeVertex(Vertex<E, W> vertex) {
         if (vertices.get(vertex.position).equals(vertex)) {
             vertex.incidents.forEach(this::removeEdge);
@@ -90,17 +99,8 @@ public class Graph<E, W extends Comparable<W>> {
             throw new NullPointerException("One of the given vertices is not defined");
         }
 
-        Vertex<E, W> origin = null;
-        Vertex<E, W> destination = null;
-
-        for (Vertex<E, W> v : vertices) {
-            if (v.element.equals(from)) {
-                origin = v;
-            }
-            if (v.element.equals(to)) {
-                destination = v;
-            }
-        }
+        Vertex<E, W> origin = getVertex(from);
+        Vertex<E, W> destination = getVertex(to);
 
         if (origin == null || destination == null) {
             throw new IllegalArgumentException("Invalid input string");
@@ -145,7 +145,11 @@ public class Graph<E, W extends Comparable<W>> {
     }
 
     public boolean removeEdge(Vertex<E, W> from, Vertex<E, W> to) {
-        Edge<E, W> targetEdge = getEdge(from, to);
+        return removeEdge(from, to, true);
+    }
+
+    public boolean removeEdge(Vertex<E, W> from, Vertex<E, W> to, boolean strictDirection) {
+        Edge<E, W> targetEdge = getEdge(from, to, strictDirection);
         return targetEdge != null && removeEdge(targetEdge);
     }
 
@@ -154,6 +158,9 @@ public class Graph<E, W extends Comparable<W>> {
             edge.origin.incidents.remove(edge);
             edge.destination.incidents.remove(edge);
             edges.remove(edge.position);
+            for (int i = edge.position; i < edges.size(); i++) {
+                edges.get(i).position = i;
+            }
             return true;
         }
         return false;
@@ -166,6 +173,8 @@ public class Graph<E, W extends Comparable<W>> {
     private void resetVisitState() {
         for (Vertex<E, W> vertex : vertices) {
             vertex.visited = false;
+            vertex.distance = 0;
+            vertex.parent = null;
         }
     }
 
@@ -178,28 +187,40 @@ public class Graph<E, W extends Comparable<W>> {
         if (vertex == null) return;
         vertex.visited = true;
         visit.accept(vertex);
-        getAdjacent(vertex).stream().filter(adjacend -> !adjacend.visited).forEach(adjacent -> DFSRecursive(visit, adjacent));
+        getAdjacent(vertex).stream().filter(adjacent -> !adjacent.visited).forEach(adjacent -> DFSRecursive(visit, adjacent));
     }
 
     public void BFS(Consumer<Vertex<E, W>> visit) {
-        Queue<Vertex<E, W>> queue = new ArrayBlockingQueue<>(20);
-        Vertex<E, W> current = getFirstVertex();
-        if (current != null) {
-            current.visited = true;
-            visit.accept(current);
+        BFS(getFirstVertex(), visit);
+    }
+
+    public void BFS(Vertex<E, W> startingVertex, Consumer<Vertex<E, W>> visit) {
+        Queue<Vertex<E, W>> queue = new ArrayBlockingQueue<>(100);
+        Vertex<E, W> current;
+
+        if (startingVertex != null) {
+            queue.add(startingVertex);
+            startingVertex.visited = true;
+            startingVertex.distance = 0;
+            visit.accept(startingVertex);
         }
 
-        while (current != null) {
-            getAdjacent(current).stream().filter(vertex -> !vertex.visited).forEach(vertex -> {
-                vertex.visited = true;
-                visit.accept(vertex);
-                queue.add(vertex);
-            });
+        while (!queue.isEmpty()) {
             current = queue.poll();
+            for (Vertex<E, W> vertex : getAdjacent(current)) {
+                if (!vertex.visited) {
+                    vertex.visited = true;
+                    vertex.distance = current.distance + 1;
+                    vertex.parent = current;
+                    visit.accept(vertex);
+                    queue.add(vertex);
+                }
+            }
             if (queue.isEmpty()) {
                 break;
             }
         }
+        resetVisitState();
     }
 
     private MSTNode getMinVertex(Map<Vertex<E, W>, MSTNode> nodes, W maxValue) {
@@ -265,6 +286,7 @@ public class Graph<E, W extends Comparable<W>> {
         return startingVertex;
     }
 
+
     @Override
     public String toString() {
         List<String> firstLine = vertices.stream().map(Vertex::toString).collect(Collectors.toList());
@@ -288,20 +310,38 @@ public class Graph<E, W extends Comparable<W>> {
             this.weight = weight;
         }
 
+        public W getWeight() {
+            return weight;
+        }
+
         @Override
         public String toString() {
-            return origin.toString() + " " + destination.toString() + " " + weight.toString();
+            return origin.toString() + " " + destination.toString();
         }
     }
 
     public static class Vertex<E, W> {
         protected E element;
         protected int position = -1;
+        protected int distance = -1; // for BFS
+        protected Vertex<E, W> parent = null; // for BFS
         protected boolean visited = false;
         private List<Edge<E, W>> incidents = new ArrayList<>();
 
         public Vertex(E element) {
             this.element = element;
+        }
+
+        public E getElement() {
+            return element;
+        }
+
+        public int getDistance() {
+            return distance;
+        }
+
+        public Vertex<E, W> getParent() {
+            return parent;
         }
 
         @Override
@@ -320,16 +360,6 @@ public class Graph<E, W extends Comparable<W>> {
             this.vertex = vertex;
             this.edge = edge;
             this.key = key;
-        }
-    }
-
-    /**
-     * sort the queue DESC
-     */
-    private class MSTNodeComparator implements Comparator<MSTNode> {
-        @Override
-        public int compare(MSTNode o1, MSTNode o2) {
-            return o1.key.compareTo(o2.key);
         }
     }
 }
