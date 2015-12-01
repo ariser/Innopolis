@@ -1,16 +1,17 @@
 package graph;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class Graph<E, W> {
-    private List<Vertex<E, W>> verticies = new ArrayList<>();
+public class Graph<E, W extends Comparable<W>> {
+    private List<Vertex<E, W>> vertices = new ArrayList<>();
     private List<Edge<E, W>> edges = new ArrayList<>();
 
-    public static <E, W> Graph<E, W> fromString(String source, Class<E> elementClass, Class<W> weightClass)
+    public static <E> Graph<E, Integer> fromString(String source, Class<E> elementClass)
             throws IllegalArgumentException {
-        Graph<E, W> result = new Graph<>();
+        Graph<E, Integer> result = new Graph<>();
 
         String[] lines = source.split("\n");
         if (lines.length != 2) {
@@ -31,12 +32,12 @@ public class Graph<E, W> {
             for (int i = 0; i < edges.length; i += 3) {
                 E fromElem = elementClass.cast(edges[i]);
                 E toElem = elementClass.cast(edges[i + 1]);
-                W weight = weightClass.cast(edges[i + 2]);
+                int weight = Integer.parseInt(edges[i + 2]);
 
-                Vertex<E, W> from = null;
-                Vertex<E, W> to = null;
+                Vertex<E, Integer> from = null;
+                Vertex<E, Integer> to = null;
 
-                for (Vertex<E, W> v : result.verticies) {
+                for (Vertex<E, Integer> v : result.vertices) {
                     if (v.element.equals(fromElem)) {
                         from = v;
                     }
@@ -58,44 +59,93 @@ public class Graph<E, W> {
         return result;
     }
 
+    public boolean addVertex(E element) {
+        return addVertex(new Vertex<>(element));
+    }
+
     public boolean addVertex(Vertex<E, W> vertex) {
-        if (!verticies.contains(vertex)) {
-            verticies.add(vertex);
-            vertex.position = verticies.size() - 1;
+        if (!vertices.contains(vertex)) {
+            vertices.add(vertex);
+            vertex.position = vertices.size() - 1;
             return true;
         }
         return false;
     }
 
     public boolean removeVertex(Vertex<E, W> vertex) {
-        if (verticies.get(vertex.position).equals(vertex)) {
+        if (vertices.get(vertex.position).equals(vertex)) {
             vertex.incidents.forEach(this::removeEdge);
-            verticies.remove(vertex.position);
+            vertices.remove(vertex.position);
             return true;
         }
         return false;
+    }
+
+    public void addEdge(E from, E to) {
+        addEdge(from, to, null);
+    }
+
+    public void addEdge(E from, E to, W weight) throws IllegalArgumentException, NullPointerException {
+        if (from == null || to == null) {
+            throw new NullPointerException("One of the given vertices is not defined");
+        }
+
+        Vertex<E, W> origin = null;
+        Vertex<E, W> destination = null;
+
+        for (Vertex<E, W> v : vertices) {
+            if (v.element.equals(from)) {
+                origin = v;
+            }
+            if (v.element.equals(to)) {
+                destination = v;
+            }
+        }
+
+        if (origin == null || destination == null) {
+            throw new IllegalArgumentException("Invalid input string");
+        }
+
+        addEdge(origin, destination, weight);
     }
 
     public void addEdge(Vertex<E, W> from, Vertex<E, W> to) {
         addEdge(from, to, null);
     }
 
-    public void addEdge(Vertex<E, W> from, Vertex<E, W> to, W weight) {
-        Edge<E, W> newEdge = new Edge<>(from, to, weight);
-        edges.add(newEdge);
-        newEdge.position = edges.size() - 1;
-        newEdge.origin.incidents.add(newEdge);
-        newEdge.destination.incidents.add(newEdge);
+    public void addEdge(Vertex<E, W> from, Vertex<E, W> to, W weight) throws NullPointerException {
+        if (from == null || to == null) {
+            throw new NullPointerException("One of the given vertices is not defined");
+        }
+
+        addEdge(new Edge<>(from, to, weight));
     }
 
-    public boolean removeEdge(Vertex<E, W> from, Vertex<E, W> to) {
+    private void addEdge(Edge<E, W> edge) {
+        edges.add(edge);
+        edge.position = edges.size() - 1;
+        edge.origin.incidents.add(edge);
+        edge.destination.incidents.add(edge);
+    }
+
+    private Edge<E, W> getEdge(Vertex<E, W> from, Vertex<E, W> to) {
+        return getEdge(from, to, true);
+    }
+
+    private Edge<E, W> getEdge(Vertex<E, W> from, Vertex<E, W> to, boolean strictDirection) {
         Edge<E, W> targetEdge = null;
         for (Edge<E, W> e : edges) {
-            if (e.origin.equals(from) && e.destination.equals(to)) {
+            if (e.origin.equals(from) && e.destination.equals(to)
+                    || (!strictDirection && e.origin.equals(to) && e.destination.equals(from))) {
                 targetEdge = e;
                 break;
             }
         }
+        return targetEdge;
+    }
+
+    public boolean removeEdge(Vertex<E, W> from, Vertex<E, W> to) {
+        Edge<E, W> targetEdge = getEdge(from, to);
         return targetEdge != null && removeEdge(targetEdge);
     }
 
@@ -113,9 +163,111 @@ public class Graph<E, W> {
         return vertex.incidents.stream().map(e -> e.origin.equals(vertex) ? e.destination : e.origin).collect(Collectors.toList());
     }
 
+    private void resetVisitState() {
+        for (Vertex<E, W> vertex : vertices) {
+            vertex.visited = false;
+        }
+    }
+
+    public void DFS(Consumer<Vertex<E, W>> visit) {
+        DFSRecursive(visit, getFirstVertex());
+        resetVisitState();
+    }
+
+    private void DFSRecursive(Consumer<Vertex<E, W>> visit, Vertex<E, W> vertex) {
+        if (vertex == null) return;
+        vertex.visited = true;
+        visit.accept(vertex);
+        getAdjacent(vertex).stream().filter(adjacend -> !adjacend.visited).forEach(adjacent -> DFSRecursive(visit, adjacent));
+    }
+
+    public void BFS(Consumer<Vertex<E, W>> visit) {
+        Queue<Vertex<E, W>> queue = new ArrayBlockingQueue<>(20);
+        Vertex<E, W> current = getFirstVertex();
+        if (current != null) {
+            current.visited = true;
+            visit.accept(current);
+        }
+
+        while (current != null) {
+            getAdjacent(current).stream().filter(vertex -> !vertex.visited).forEach(vertex -> {
+                vertex.visited = true;
+                visit.accept(vertex);
+                queue.add(vertex);
+            });
+            current = queue.poll();
+            if (queue.isEmpty()) {
+                break;
+            }
+        }
+    }
+
+    private MSTNode getMinVertex(Map<Vertex<E, W>, MSTNode> nodes, W maxValue) {
+        MSTNode min = new MSTNode(null, null, maxValue);
+        for (Map.Entry<Vertex<E, W>, MSTNode> node : nodes.entrySet()) {
+            if (!node.getValue().visited && node.getValue().key.compareTo(min.key) < 0) {
+                min = node.getValue();
+            }
+        }
+        return min;
+    }
+
+    public Graph<E, W> getMinimumSpanningTree(Vertex<E, W> startingVertex, W minWeight, W maxWeight) {
+        Graph<E, W> MST = new Graph<>();
+
+        Map<Vertex<E, W>, MSTNode> dist = new HashMap<>(vertices.size());
+
+        dist.put(startingVertex, new MSTNode(startingVertex, null, minWeight));
+        vertices.stream().filter(vertex -> vertex != startingVertex).forEach(vertex -> {
+            dist.put(vertex, new MSTNode(vertex, null, maxWeight));
+        });
+        int visitedCount = 0;
+
+        while (visitedCount < vertices.size()) {
+            MSTNode node = getMinVertex(dist, maxWeight);
+            node.visited = true;
+            MST.addVertex(node.vertex);
+            if (node.edge != null) {
+                MST.addEdge(node.edge);
+            }
+            for (Edge<E, W> edge : node.vertex.incidents) {
+                Vertex<E, W> anotherVertex = node.vertex.equals(edge.origin) ? edge.destination : edge.origin;
+                MSTNode currentNode = dist.get(anotherVertex);
+                if (edge.weight.compareTo(currentNode.key) < 0) {
+                    currentNode.key = edge.weight;
+                    currentNode.edge = edge;
+                }
+            }
+            visitedCount++;
+        }
+
+        return MST;
+    }
+
+    public Graph<E, W> getMinimumSpanningTree(W minWeight, W maxWeight) {
+        return getMinimumSpanningTree(getFirstVertex(), minWeight, maxWeight);
+    }
+
+    /**
+     * Find the first available vertex.
+     * Can't just .get(0) as long as it could be deleted.
+     *
+     * @return the first available vertex
+     */
+    private Vertex<E, W> getFirstVertex() {
+        Vertex<E, W> startingVertex = null;
+        for (Vertex<E, W> vertex : vertices) {
+            startingVertex = vertex;
+            if (startingVertex != null) {
+                break;
+            }
+        }
+        return startingVertex;
+    }
+
     @Override
     public String toString() {
-        List<String> firstLine = verticies.stream().map(Vertex::toString).collect(Collectors.toList());
+        List<String> firstLine = vertices.stream().map(Vertex::toString).collect(Collectors.toList());
         List<String> secondLine = edges.stream().map(Edge::toString).collect(Collectors.toList());
         return String.join(" ", firstLine) + "\n" + String.join(" ", secondLine);
     }
@@ -145,6 +297,7 @@ public class Graph<E, W> {
     public static class Vertex<E, W> {
         protected E element;
         protected int position = -1;
+        protected boolean visited = false;
         private List<Edge<E, W>> incidents = new ArrayList<>();
 
         public Vertex(E element) {
@@ -154,6 +307,29 @@ public class Graph<E, W> {
         @Override
         public String toString() {
             return element.toString();
+        }
+    }
+
+    private class MSTNode {
+        W key;
+        Vertex<E, W> vertex;
+        Edge<E, W> edge;
+        boolean visited = false;
+
+        MSTNode(Vertex<E, W> vertex, Edge<E, W> edge, W key) {
+            this.vertex = vertex;
+            this.edge = edge;
+            this.key = key;
+        }
+    }
+
+    /**
+     * sort the queue DESC
+     */
+    private class MSTNodeComparator implements Comparator<MSTNode> {
+        @Override
+        public int compare(MSTNode o1, MSTNode o2) {
+            return o1.key.compareTo(o2.key);
         }
     }
 }
