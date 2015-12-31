@@ -13,7 +13,7 @@ public class MyAVLTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         deleteRecursive(binTree.getRoot(), value);
     }
 
-    private void deleteRecursive(MyBinaryTree<E>.Node<E> node, E value) {
+    private void deleteRecursive(MyBinaryTree.Node<E> node, E value) {
         if (node == null) {
             return;
         }
@@ -46,7 +46,7 @@ public class MyAVLTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
                 }
             } else {
                 // node has two children
-                MyBinaryTree<E>.Node<E> predecessor = node.getLeftChild();
+                MyBinaryTree.Node<E> predecessor = node.getLeftChild();
                 while (predecessor.getRightChild() != null || predecessor.getLeftChild() != null) {
                     if (predecessor.getRightChild() != null) {
                         predecessor = predecessor.getRightChild();
@@ -62,7 +62,7 @@ public class MyAVLTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         balanceDeletion(node);
     }
 
-    private boolean isBalanced(MyBinaryTree<E>.Node<E> node) {
+    private boolean isBalanced(MyBinaryTree.Node<E> node) {
         return Math.abs(binTree.height(node.getLeftChild()) - binTree.height(node.getRightChild())) <= 1;
     }
 
@@ -70,13 +70,13 @@ public class MyAVLTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
      * < -1 if the left subtree is higher
      * > 1 if the right subtree is higher
      */
-    private int getBalance(MyBinaryTree<E>.Node<E> node) {
+    private int getBalance(MyBinaryTree.Node<E> node) {
         return binTree.height(node.getLeftChild()) - binTree.height(node.getRightChild());
     }
 
-    private void leftRotate(MyBinaryTree<E>.Node<E> node) {
-        MyBinaryTree<E>.Node<E> rightChild = node.getRightChild();
-        MyBinaryTree<E>.Node<E> rightChildLeftChild = rightChild.getLeftChild();
+    private void leftRotate(MyBinaryTree.Node<E> node) {
+        MyBinaryTree.Node<E> rightChild = node.getRightChild();
+        MyBinaryTree.Node<E> rightChildLeftChild = rightChild.getLeftChild();
 
         if (binTree.getRoot() == node) {
             binTree.setRoot(rightChild);
@@ -92,9 +92,9 @@ public class MyAVLTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         node.setRightChild(rightChildLeftChild);
     }
 
-    private void rightRotate(MyBinaryTree<E>.Node<E> node) {
-        MyBinaryTree<E>.Node<E> leftChild = node.getLeftChild();
-        MyBinaryTree<E>.Node<E> leftChildRightChild = leftChild.getRightChild();
+    private void rightRotate(MyBinaryTree.Node<E> node) {
+        MyBinaryTree.Node<E> leftChild = node.getLeftChild();
+        MyBinaryTree.Node<E> leftChildRightChild = leftChild.getRightChild();
 
         if (binTree.getRoot() == node) {
             binTree.setRoot(leftChild);
@@ -110,7 +110,7 @@ public class MyAVLTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         node.setLeftChild(leftChildRightChild);
     }
 
-    private MyBinaryTree<E>.Node<E> getUnbalancedAncestor(MyBinaryTree<E>.Node<E> node) {
+    private MyBinaryTree.Node<E> getUnbalancedAncestor(MyBinaryTree.Node<E> node) {
         while (node != null) {
             if (!isBalanced(node)) return node;
             node = node.getParent();
@@ -118,8 +118,8 @@ public class MyAVLTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         return null;
     }
 
-    private void balanceInsertion(MyBinaryTree<E>.Node<E> newNode) {
-        MyBinaryTree<E>.Node<E> unbalancedNode = getUnbalancedAncestor(newNode);
+    private void balanceInsertion(MyBinaryTree.Node<E> newNode) {
+        MyBinaryTree.Node<E> unbalancedNode = getUnbalancedAncestor(newNode);
 
         if (unbalancedNode == null) return;
 
@@ -142,7 +142,7 @@ public class MyAVLTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         }
     }
 
-    private void balanceDeletion(MyBinaryTree<E>.Node<E> node) {
+    private void balanceDeletion(MyBinaryTree.Node<E> node) {
         if (node == null) {
             return;
         }

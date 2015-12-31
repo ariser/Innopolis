@@ -9,18 +9,22 @@ public class MyArrayTree<E extends Comparable<E>> {
 
     protected int k;
 
+    protected int size;
+
     MyArrayTree(int k) {
         this.k = k;
         this.elements = (Node[]) Array.newInstance(Node.class, 1);
+        this.size = 0;
     }
 
     MyArrayTree(int k, E rootValue) {
         this.k = k;
         this.elements = (Node[]) Array.newInstance(Node.class, 1);
         setRoot(rootValue);
+        this.size = 1;
     }
 
-    private void allocateSpace() {
+    protected void allocateSpace() {
         int size = elements.length;
         Node[] newElements = (Node[]) Array.newInstance(Node.class, size * 2);
         System.arraycopy(elements, 0, newElements, 0, size);
@@ -37,6 +41,68 @@ public class MyArrayTree<E extends Comparable<E>> {
         return root;
     }
 
+    Node getParent(Node node) throws ArrayIndexOutOfBoundsException {
+        return elements[getParentIndexInArray(node)];
+    }
+
+    Node getChild(Node node, int childIndex) {
+        int childIndexInArray = getChildIndexInArray(node, childIndex);
+        return elements.length - 1 >= childIndexInArray ? elements[childIndexInArray] : null;
+    }
+
+    Node addChild(Node node, int childIndex, E value) {
+        Node prevNode = getChild(node, childIndex);
+        int childIndexInArray = getChildIndexInArray(node, childIndex);
+        while (childIndexInArray >= elements.length) {
+            allocateSpace();
+        }
+        elements[childIndexInArray] = new Node(value, childIndexInArray);
+        size++;
+        return prevNode;
+    }
+
+    void remove(Node node) {
+        // remove the node itself and all its children
+        performTraversalPostorder(node, new Function<Node, Object>() {
+            @Override
+            public Object apply(Node node) {
+                elements[node.index] = null;
+                size--;
+                return null;
+            }
+        });
+    }
+
+    void addSubtree(Node node, int childIndex, MyArrayTree<E> tree) {
+        Node prevNode = getChild(node, childIndex);
+        if (prevNode != null) {
+            remove(prevNode);
+        }
+        addSubtreeRecursive(node, tree.getRoot(), childIndex);
+    }
+
+    void addSubtreeRecursive(Node parent, Node node, int childIndex) {
+        if (parent == null || node == null) {
+            return;
+        }
+        addChild(parent, childIndex, node.getValue());
+        Node newChild = getChild(parent, childIndex);
+        for (int i = 0; i < k; i++) {
+            addSubtreeRecursive(newChild, getChild(node, i), i);
+        }
+    }
+
+    protected int getParentIndexInArray(Node node) {
+        return (node.index - 1) / k;
+    }
+
+    protected int getChildIndexInArray(Node node, int childIndex) {
+        return node.index * k + childIndex + 1;
+    }
+
+    public int size() {
+        return size;
+    }
 
     public void traversalPreorder(Function<Node, Object> callback) {
         performTraversalPreorder(getRoot(), callback);
@@ -47,7 +113,7 @@ public class MyArrayTree<E extends Comparable<E>> {
             callback.apply(node);
             Node child;
             for (int i = 0; i < k; i++) {
-                child = node.getChild(i);
+                child = getChild(node, i);
                 performTraversalPreorder(child, callback);
             }
         }
@@ -61,7 +127,7 @@ public class MyArrayTree<E extends Comparable<E>> {
         if (node != null) {
             Node child;
             for (int i = 0; i < k; i++) {
-                child = node.getChild(i);
+                child = getChild(node, i);
                 performTraversalPostorder(child, callback);
             }
             callback.apply(node);
@@ -77,14 +143,6 @@ public class MyArrayTree<E extends Comparable<E>> {
             this.index = index;
         }
 
-        private int getParentIndexInArray() {
-            return (index - 1) / k;
-        }
-
-        private int getChildIndexInArray(int childIndex) {
-            return index * k + childIndex + 1;
-        }
-
         E getValue() {
             return value;
         }
@@ -92,55 +150,5 @@ public class MyArrayTree<E extends Comparable<E>> {
         void setValue(E value) {
             this.value = value;
         }
-
-        Node getParent() throws ArrayIndexOutOfBoundsException {
-            return elements[getParentIndexInArray()];
-        }
-
-        Node getChild(int childIndex) {
-            int childIndexInArray = getChildIndexInArray(childIndex);
-            return elements.length - 1 >= childIndexInArray ? elements[childIndexInArray] : null;
-        }
-
-        Node addChild(int childIndex, E value) {
-            Node prevNode = getChild(childIndex);
-            int childIndexInArray = getChildIndexInArray(childIndex);
-            while (childIndexInArray >= elements.length) {
-                allocateSpace();
-            }
-            elements[childIndexInArray] = new Node(value, childIndexInArray);
-            return prevNode;
-        }
-
-        void remove() {
-            // remove the node itself and all its children
-            performTraversalPostorder(this, new Function<Node, Object>() {
-                @Override
-                public Object apply(Node node) {
-                    elements[node.index] = null;
-                    return null;
-                }
-            });
-        }
-
-        void addSubtree(int childIndex, MyArrayTree<E> tree) {
-            Node prevNode = getChild(childIndex);
-            if (prevNode != null) {
-                prevNode.remove();
-            }
-            addSubtreeRecursive(this, tree.getRoot(), childIndex);
-        }
-
-        void addSubtreeRecursive(Node parent, Node node, int childIndex) {
-            if (parent == null || node == null) {
-                return;
-            }
-            parent.addChild(childIndex, node.getValue());
-            Node newChild = parent.getChild(childIndex);
-            for (int i = 0; i < k; i++) {
-                addSubtreeRecursive(newChild, node.getChild(i), i);
-            }
-        }
-
     }
 }

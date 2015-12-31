@@ -12,7 +12,7 @@ abstract class MyAbstractTree<E> implements MyTree<E> {
         return getSize() == 0;
     }
 
-    abstract class Node<T> implements MyTree.Node<T> {
+    abstract static class Node<T> implements MyTree.Node<T> {
         T value;
 
         public T getValue() {

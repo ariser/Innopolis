@@ -120,7 +120,7 @@ public class MyBinaryTree<E> extends MyAbstractTree<E> implements MyTree<E> {
     }
     // endregion
 
-    public class Node<T> extends MyAbstractTree<T>.Node<T> implements MyTree.Node<T> {
+    public static class Node<T> extends MyAbstractTree.Node<T> implements MyTree.Node<T> {
         protected MyBinaryTree<T> tree;
         protected Node<T> leftChild = null;
         protected Node<T> rightChild = null;

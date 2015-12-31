@@ -11,11 +11,11 @@ public class MyBinarySearchTree<E extends Comparable<E>> {
         binTree = new MyBinaryTree<>(rootValue);
     }
 
-    public MyBinaryTree<E>.Node<E> find(E value) {
+    public MyBinaryTree.Node<E> find(E value) {
         return doSearch(binTree.getRoot(), value);
     }
 
-    protected MyBinaryTree<E>.Node<E> doSearch(MyBinaryTree<E>.Node<E> node, E value) {
+    protected MyBinaryTree.Node<E> doSearch(MyBinaryTree.Node<E> node, E value) {
         if (node == null) {
             return null;
         }
@@ -32,7 +32,7 @@ public class MyBinarySearchTree<E extends Comparable<E>> {
     }
 
     public void add(E value) {
-        MyBinaryTree<E>.Node<E> root = binTree.getRoot();
+        MyBinaryTree.Node<E> root = binTree.getRoot();
         if (root == null) {
             binTree.addRoot(value);
         } else {
@@ -40,7 +40,7 @@ public class MyBinarySearchTree<E extends Comparable<E>> {
         }
     }
 
-    protected void addRecursive(E value, MyBinaryTree<E>.Node<E> node) {
+    protected void addRecursive(E value, MyBinaryTree.Node<E> node) {
         if (node == null) {
             return;
         }
@@ -63,7 +63,7 @@ public class MyBinarySearchTree<E extends Comparable<E>> {
     }
 
     public void delete(E value) {
-        MyBinaryTree<E>.Node<E> node = find(value);
+        MyBinaryTree.Node<E> node = find(value);
 
         if (node == null) {
             return;
@@ -92,7 +92,7 @@ public class MyBinarySearchTree<E extends Comparable<E>> {
             }
         } else {
             // node has two children
-            MyBinaryTree<E>.Node<E> predecessor = node.getLeftChild();
+            MyBinaryTree.Node<E> predecessor = node.getLeftChild();
             while (predecessor.getRightChild() != null || predecessor.getLeftChild() != null) {
                 if (predecessor.getRightChild() != null) {
                     predecessor = predecessor.getRightChild();
@@ -113,7 +113,7 @@ public class MyBinarySearchTree<E extends Comparable<E>> {
         return binTree.height();
     }
 
-    public int height(MyBinaryTree<E>.Node<E> node) {
+    public int height(MyBinaryTree.Node<E> node) {
         return binTree.height(node);
     }
 

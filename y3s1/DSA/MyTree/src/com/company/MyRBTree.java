@@ -13,7 +13,7 @@ public class MyRBTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
     @Override
     public void add(E value) {
         super.add(value);
-        MyBinaryTree<E>.Node<E> newNode = find(value);
+        MyBinaryTree.Node<E> newNode = find(value);
         setColor(newNode, newNode == binTree.getRoot() ? Color.Black : Color.Red);
         balanceInsertion(newNode);
     }
@@ -23,7 +23,7 @@ public class MyRBTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         deleteRecursive(binTree.getRoot(), value);
     }
 
-    private void deleteRecursive(MyBinaryTree<E>.Node<E> node, E value) {
+    private void deleteRecursive(MyBinaryTree.Node<E> node, E value) {
         if (node == null) {
             return;
         }
@@ -56,7 +56,7 @@ public class MyRBTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
                 }
             } else {
                 // node has two children
-                MyBinaryTree<E>.Node<E> predecessor = node.getLeftChild();
+                MyBinaryTree.Node<E> predecessor = node.getLeftChild();
                 while (predecessor.getRightChild() != null || predecessor.getLeftChild() != null) {
                     if (predecessor.getRightChild() != null) {
                         predecessor = predecessor.getRightChild();
@@ -72,9 +72,9 @@ public class MyRBTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         balanceDeletion(node);
     }
 
-    private void leftRotate(MyBinaryTree<E>.Node<E> node) {
-        MyBinaryTree<E>.Node<E> rightChild = node.getRightChild();
-        MyBinaryTree<E>.Node<E> rightChildLeftChild = rightChild.getLeftChild();
+    private void leftRotate(MyBinaryTree.Node<E> node) {
+        MyBinaryTree.Node<E> rightChild = node.getRightChild();
+        MyBinaryTree.Node<E> rightChildLeftChild = rightChild.getLeftChild();
 
         if (binTree.getRoot() == node) {
             binTree.setRoot(rightChild);
@@ -90,9 +90,9 @@ public class MyRBTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         node.setRightChild(rightChildLeftChild);
     }
 
-    private void rightRotate(MyBinaryTree<E>.Node<E> node) {
-        MyBinaryTree<E>.Node<E> leftChild = node.getLeftChild();
-        MyBinaryTree<E>.Node<E> leftChildRightChild = leftChild.getRightChild();
+    private void rightRotate(MyBinaryTree.Node<E> node) {
+        MyBinaryTree.Node<E> leftChild = node.getLeftChild();
+        MyBinaryTree.Node<E> leftChildRightChild = leftChild.getRightChild();
 
         if (binTree.getRoot() == node) {
             binTree.setRoot(leftChild);
@@ -108,7 +108,7 @@ public class MyRBTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         node.setLeftChild(leftChildRightChild);
     }
 
-    private void balanceInsertion(MyBinaryTree<E>.Node<E> newNode) {
+    private void balanceInsertion(MyBinaryTree.Node<E> newNode) {
         if (newNode == null) {
             return;
         }
@@ -117,9 +117,9 @@ public class MyRBTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
             return;
         }
 
-        MyBinaryTree<E>.Node<E> parent = newNode.getParent();
-        MyBinaryTree<E>.Node<E> grandpa = parent.getParent();
-        MyBinaryTree<E>.Node<E> uncle = grandpa.getLeftChild() == parent ? grandpa.getRightChild() : grandpa.getLeftChild();
+        MyBinaryTree.Node<E> parent = newNode.getParent();
+        MyBinaryTree.Node<E> grandpa = parent.getParent();
+        MyBinaryTree.Node<E> uncle = grandpa.getLeftChild() == parent ? grandpa.getRightChild() : grandpa.getLeftChild();
 
         if (getColor(parent) == Color.Red && getColor(uncle) == Color.Red) {
             setColor(parent, Color.Black);
@@ -156,14 +156,14 @@ public class MyRBTree<E extends Comparable<E>> extends MyBinarySearchTree<E> {
         }
     }
 
-    private void balanceDeletion(MyBinaryTree<E>.Node<E> node) {
+    private void balanceDeletion(MyBinaryTree.Node<E> node) {
     }
 
-    private void setColor(MyBinaryTree<E>.Node<E> node, Color color) {
+    private void setColor(MyBinaryTree.Node<E> node, Color color) {
         colors.put(node.getValue(), color);
     }
 
-    private Color getColor(MyBinaryTree<E>.Node<E> node) {
+    private Color getColor(MyBinaryTree.Node<E> node) {
         if (node == null) return Color.Black;
         return colors.get(node.getValue());
     }

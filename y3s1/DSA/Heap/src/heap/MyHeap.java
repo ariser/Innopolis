@@ -11,8 +11,26 @@ public class MyHeap<K extends Comparable<K>, V> {
         binTree = new MyArrayTree<>(2, new Node<>(rootKey, rootValue));
     }
 
-    public void insert(K key, V value) {
-        
+    public void add(K key, V value) {
+        Node<K, V> newNode = new Node<>(key, value);
+        int index = binTree.size();
+        while (index >= binTree.elements.length) {
+            binTree.allocateSpace();
+        }
+        MyArrayTree.Node<Node<K, V>> node = new MyArrayTree.Node<>(newNode, index);
+        binTree.elements[index] = node;
+        MyArrayTree.Node<Node<K, V>> parent = binTree.getParent(node);
+        while (parent.getValue().compareTo(node.getValue()) < 0) {
+
+        }
+    }
+
+    public V peek() {
+        return null;
+    }
+
+    public int size() {
+        return binTree.size();
     }
 
     protected class Node<K extends Comparable<K>, V> implements Comparable<Node<K, V>> {
@@ -25,7 +43,7 @@ public class MyHeap<K extends Comparable<K>, V> {
         }
 
         K getKey() {
-          return key;
+            return key;
         }
 
         V getValue() {
