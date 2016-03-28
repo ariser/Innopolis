@@ -1,0 +1,23 @@
+Here I have an abstract realization of a lamp along with some implemented cases for different bulbs and switches
+that demonstrate how this whole thing works and why is it following the SOLID principles.
+
+1. The S principle
+Each class han a single responsibility. The LightBulb represents a bulb, the Switch is for a switch, the Lamp class combines them into a whole device.
+
+2. The O principle
+The LightBulbs package is an example of extending the base LightBulb class. There are extensions, but no modifications.
+For each of those classes we can provide additional extensions that will be continuations of the paradigms implemented by them, which are:
+ - Fluorescent bulb can be of defferent color renderings
+ - IncandescentLightBulb broke after beign toggled N times
+ - LED bulb can be tuned
+
+3. The L principle 
+For example, in DimmerSwitch we can see that the switch is off if and only if its capacity is set to 0, and is on otherwise. Also,
+the methods "on" and "off" are extended to follow this convention. Therefore we can replace Switch with DimmerSwitch, although it cannot be tuned then,
+only turned on and off.
+
+4. The I principle
+Each of the interfaces used is responsible for its own small task without any redundancy.
+
+5. The D principle 
+The Lamp class has fields for a bulb and a switch. As long as there can be (and are) multiple implementations of those, the types of these fields are abstract.
