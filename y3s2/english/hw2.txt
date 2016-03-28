@@ -1,0 +1,90 @@
+A
+1 a
+2 c
+3 b
+4 с
+5 c
+6 a
+7 b
+8 c
+9 b
+10 c
+
+B
+1 a
+2 c
+3 b
+4 c
+5 b
+6 a
+7 b
+8 b
+9 a
+10 c
+
+C
+1 a b e
+2 b e
+3 a d e
+
+D
+1 If I study, I will pass the test
+2 If I studied, I would pass the test.
+3 If I had studied, I would have passed the test.
+4 If the sun shines, we will go swimming.
+5 If the sun shone, we would go swimming.
+6 If the sun had shone, we would have gone swimming.
+7 They will fly to Canberra if they have more money.
+8 They would fly to Canberra if they had more money.
+9 They would have flown to Canberra if they had had more money.
+
+E
+1 If the weather had been better, we would have come by bike.
+2 If you were older, you would go to the party.
+3 If Alice had more money, she would go to Africa.
+4 John's mother will have more time for him if he does the washing up.
+5 If Steven had taken his camera, he would have taken nice pictures.
+6 They will stay longer in Paris if they find a cheap hotel.
+7 If Brian liked horses, he could ride well.
+8 If Sarah had not eaten so much junk food, she could have been in the school hockey team.
+9 He can write good stories if he feels like it.
+10 If you listened carefully, you would know about it.
+
+
+===========
+
+Type I
+1 If you send this letter now, she will receive it tomorrow.
+2 If I do this test, I will improve my English.
+3 If I find you ring, I will give it back to you.
+4 Peggy will go shopping if she has time in the afternoon.
+5 Simon will go to London next week if he gets a cheap flight.
+6 If her boyfriend doesn't phone today, she will leave him.
+7 If they don't study harder, they won't pass the exam.
+8 If it rains tomorrow, I won't have to water the plants.
+9 You won't be able to sleep if you watch this scary film.
+10 Susan can't move into the new house if it isn't ready on time.
+
+Type II
+1 If we had a yacht, we would sail the seven seas.
+2 If he had more time, he would learn karate.
+3 If they told the father, he would be very angry.
+4 She would spend a year in USA if it was easier to get a green card.
+5 If I lived on a lonely island, I would run around naked all day.
+6 We would help you if we knew how.
+7 My brother would buy a sports car if he had the money.
+8 If I felt better, I would go to the cinema with you.
+9 If you went by bike more often, you wouldn't be so flabby.
+10 She wouldn't talk to you if she was mad at you.
+
+Type III
+1 If you had studied for the test, you would have passed it.
+2 If you had asked me, I would have helped you.
+3 If we had gone to the cinema, we would have seen my friend Josh.
+4 If you had spoken English, she would have understood you.
+5 If they had listened to me, we would have been home earlier.
+6 I would have written you a postcard if I had had your address.
+7 If I had not broken my leg, I would have taken part in the contest.
+8 If it had not started to rain, we would have walked to the museum.
+9 We would have swum in the sea if there had not been so many sharks there.
+10 If she had taken the bus, she would not have arrived in time.
