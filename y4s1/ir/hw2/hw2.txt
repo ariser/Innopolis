@@ -1,0 +1,23 @@
+﻿Ex. 2.2
+a. 'Cos -> because
+b. Shi'ite -> shia (according to the Wikipedia article, "Shi'ite", "Shiite" and "Shia" all describe followers of Shiism)
+c. cont'd -> continued
+d. Hawai'i -> hawaii
+e. O'Rourke -> orourke (not sure here, but I think that irish family names could be safely normalized to a non-apostrophe form)
+
+Ex. 2.4
+a. The next step removes single S'es, so we have to make sure that double S'es don't get removed, or at least it should work like that
+b.
+circus -> circu
+canaries -> canari
+boss -> boss
+c. Y -> I
+d. There is no deleterious effect, because transformations take place internally, with no restrictinos imposed upon input from either side, either from a user or from documents content. A search for "pony" will result in searching "poni" among tokens where all forms of "pony" were also transformed into "poni".
+
+Ex. 2.7
+a. Once, at 24 from the first postings list.
+regarding b and c - i'm not sure what counts as "a posting comparsion" in this task. Do comparsion of a posting with a skip pointer counts as a posting comparsion? Do equality check and lt (less-than) check in a single iteration count as one comparsion, or as two? Depending on that, the answer could be:
+b - 16, c - 19 (skips don't count, equality and lt is a single comparsion)
+b - 27, c - 33 (skips don't count, equality and lt is two comparsions)
+b - 29, c - 33 (skips count, equality and lt is a single comparsion)
+b - 40, c - 33 (skips count, equality and lt is two comparsions)
