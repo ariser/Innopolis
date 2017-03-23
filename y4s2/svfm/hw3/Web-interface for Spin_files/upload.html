@@ -1,0 +1,33 @@
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">  
+    <script>
+      function uploading() {
+        document.getElementById('uploading').style.display = 'block';
+        document.getElementById('theform').style.display = 'none';
+      }
+      function getUrlVars() {
+        var vars = {};
+        var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+            vars[key] = value;
+        });
+        return vars;
+      }
+    </script>
+  <script>try {  for(var lastpass_iter=0; lastpass_iter < document.forms.length; lastpass_iter++){    var lastpass_f = document.forms[lastpass_iter];    if(typeof(lastpass_f.lpsubmitorig)=="undefined"){      if (typeof(lastpass_f.submit) == "function") {        lastpass_f.lpsubmitorig = lastpass_f.submit;        lastpass_f.submit = function(){          var form = this;          try {            if (document.documentElement && 'createEvent' in document)            {              var forms = document.getElementsByTagName('form');              for (var i=0 ; i<forms.length ; ++i)                if (forms[i]==form)                {                  var element = document.createElement('lpformsubmitdataelement');                  element.setAttribute('formnum',i);                  element.setAttribute('from','submithook');                  document.documentElement.appendChild(element);                  var evt = document.createEvent('Events');                  evt.initEvent('lpformsubmit',true,false);                  element.dispatchEvent(evt);                  break;                }            }          } catch (e) {}          try {            form.lpsubmitorig();          } catch (e) {}        }      }    }  }} catch (e) {}</script></head>
+  <body>
+    <form enctype="multipart/form-data" action="upload.php" method="post" id="theform">
+      <input name="promela-file" type="file">
+      <input id="token" name="token" value="fpUBPGb8F4S6bymGVPRQFCeHKRzN2IAt" type="hidden">
+      <input value="upload" name="action" type="hidden">
+      <input onclick="uploading()" value="Upload" type="submit">
+    </form>
+    <div id="uploading" style="display: none">
+      Uploading file...
+    </div>
+    <script>
+      var token = getUrlVars()['token'];
+      document.getElementById('token').value = token;
+    </script>
+  
+
+</body></html>
